@@ -15,7 +15,7 @@ export const companySchema = z.object({
 
 export const siteSettingSchema = z.object({
   siteName: z.string().trim().min(1).max(200), siteUrl: externalUrlSchema, siteTitle: z.string().trim().max(255).optional().nullable(), siteKeywords: z.string().trim().max(500).optional().nullable(),
-  siteDescription: z.string().max(10_000).optional().nullable(), logo: relativeUrlSchema, favicon: relativeUrlSchema, footerText: z.string().max(10_000).optional().nullable(),
+  siteDescription: z.string().max(10_000).optional().nullable(), logo: relativeUrlSchema, favicon: relativeUrlSchema, fallbackImage: relativeUrlSchema, footerText: z.string().max(10_000).optional().nullable(),
   copyright: z.string().trim().max(500).optional().nullable(), icpNumber: z.string().trim().max(100).optional().nullable(),
   themeConfig: z.record(z.string(), z.unknown()).optional().nullable(), socialLinks: z.array(z.object({ name: z.string().max(64), url: externalUrlSchema })).max(20).optional().nullable(),
   contactConfig: z.record(z.string(), z.unknown()).optional().nullable()

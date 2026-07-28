@@ -176,7 +176,7 @@ async function countDirectMediaReferences(client: MediaReferenceClient, url: str
     client.productImage.count({ where: { OR: [{ mediaId }, { imageUrl: url }] } }),
     client.mediaReference.count({ where: { mediaId } }),
     client.companyProfile.count({ where: { OR: [{ logo: url }, { favicon: url }] } }),
-    client.siteSetting.count({ where: { OR: [{ logo: url }, { favicon: url }] } }),
+    client.siteSetting.count({ where: { OR: [{ logo: url }, { favicon: url }, { fallbackImage: url }] } }),
     client.productCategory.count({ where: { coverImage: url } }),
     client.product.count({ where: { coverImage: url } }),
     client.partner.count({ where: { OR: [{ logo: url }, { coverImage: url }] } }),

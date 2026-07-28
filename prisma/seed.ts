@@ -82,6 +82,7 @@ async function seedCompanyAndSettings() {
       siteDescription: '南阳市吴月商贸行提供产品供应、渠道协作、企业采购与项目配套服务。',
       logo: '/wuyue.png',
       favicon: '/favicon.ico',
+      fallbackImage: '/wuyue.png',
       footerText: '以可靠供应与专业服务，连接每一次长期合作。',
       copyright: '南阳市吴月商贸行',
       themeConfig: { primary: 'blue', neutral: 'slate' },

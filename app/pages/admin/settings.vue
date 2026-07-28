@@ -11,6 +11,7 @@ type SettingsForm = {
   siteDescription: string
   logo: string
   favicon: string
+  fallbackImage: string
   footerText: string
   copyright: string
   icpNumber: string
@@ -21,7 +22,7 @@ type SettingsForm = {
 type ApiResponse<T> = { success: boolean, data: T, message: string }
 
 const blank = (): SettingsForm => ({
-  siteName: '', siteUrl: '', siteTitle: '', siteKeywords: '', siteDescription: '', logo: '', favicon: '',
+  siteName: '', siteUrl: '', siteTitle: '', siteKeywords: '', siteDescription: '', logo: '', favicon: '', fallbackImage: '',
   footerText: '', copyright: '', icpNumber: '', themeConfig: {}, socialLinks: [], contactConfig: {}
 })
 const form = ref(blank())
@@ -169,6 +170,17 @@ onMounted(load)
             <UFormField label="Favicon 路径">
               <UInput
                 v-model="form.favicon"
+                class="w-full"
+                placeholder="/uploads/..."
+              />
+            </UFormField>
+            <UFormField
+              label="缺图默认图片路径"
+              hint="先在媒体库上传图片，再将复制的 URL 粘贴到这里"
+              class="md:col-span-2"
+            >
+              <UInput
+                v-model="form.fallbackImage"
                 class="w-full"
                 placeholder="/uploads/..."
               />

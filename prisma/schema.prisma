@@ -115,6 +115,7 @@ model SiteSetting {
   siteDescription String?  @map("site_description") @db.Text
   logo            String?  @db.VarChar(1024)
   favicon         String?  @db.VarChar(1024)
+  fallbackImage   String?  @map("fallback_image") @db.VarChar(1024)
   footerText      String?  @map("footer_text") @db.Text
   copyright       String?  @db.VarChar(500)
   icpNumber       String?  @map("icp_number") @db.VarChar(100)

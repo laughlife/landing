@@ -25,6 +25,7 @@ export interface SiteInfo {
   siteDescription?: string
   logo?: string
   favicon?: string
+  fallbackImage?: string
   footerText?: string
   copyright?: string
   icpNumber?: string
