@@ -62,7 +62,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   defaults: () => ({}),
   statusOptions: () => [
-    { label: '全部状态', value: '' },
+    { label: '全部状态', value: 'ALL' },
     { label: '已启用', value: 'ENABLED' },
     { label: '已停用', value: 'DISABLED' }
   ]
@@ -75,7 +75,7 @@ const rows = ref<Array<Record<string, unknown>>>([])
 const loading = ref(true)
 const loadError = ref('')
 const keyword = ref('')
-const status = ref('')
+const status = ref('ALL')
 const page = ref(1)
 const pageSize = 10
 const meta = ref<PageMeta>({ page: 1, pageSize, total: 0, totalPages: 0 })
@@ -145,7 +145,7 @@ async function loadRows() {
         page: page.value,
         pageSize,
         keyword: keyword.value || undefined,
-        status: status.value || undefined,
+        status: status.value === 'ALL' ? undefined : status.value,
         sortBy: 'sortOrder',
         sortOrder: 'asc'
       }

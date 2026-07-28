@@ -2,7 +2,7 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const statusOptions = [
-  { label: '全部状态', value: '' },
+  { label: '全部状态', value: 'ALL' },
   { label: '已启用', value: 'ENABLED' },
   { label: '已停用', value: 'DISABLED' }
 ]

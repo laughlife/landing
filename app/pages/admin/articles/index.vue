@@ -41,13 +41,19 @@ const articles = ref<ArticleRow[]>([])
 const loading = ref(true)
 const loadError = ref('')
 const keyword = ref('')
-const status = ref('')
+const status = ref('ALL')
 const page = ref(1)
 const pageSize = 10
 const meta = ref<PageMeta>({ page: 1, pageSize, total: 0, totalPages: 0 })
 const deleteOpen = ref(false)
 const deleting = ref(false)
 const selectedArticle = ref<ArticleRow | null>(null)
+const statusOptions = [
+  { label: '全部状态', value: 'ALL' },
+  { label: '草稿', value: 'DRAFT' },
+  { label: '已发布', value: 'PUBLISHED' },
+  { label: '已停用', value: 'DISABLED' }
+]
 
 function statusLabel(statusValue: ArticleRow['status']) {
   return { DRAFT: '草稿', PUBLISHED: '已发布', DISABLED: '已停用' }[statusValue]
@@ -73,7 +79,7 @@ async function loadArticles() {
         page: page.value,
         pageSize,
         keyword: keyword.value || undefined,
-        status: status.value || undefined,
+        status: status.value === 'ALL' ? undefined : status.value,
         sortBy: 'updatedAt',
         sortOrder: 'desc'
       }
@@ -156,12 +162,7 @@ onMounted(() => void loadArticles())
         />
         <USelect
           v-model="status"
-          :items="[
-            { label: '全部状态', value: '' },
-            { label: '草稿', value: 'DRAFT' },
-            { label: '已发布', value: 'PUBLISHED' },
-            { label: '已停用', value: 'DISABLED' }
-          ]"
+          :items="statusOptions"
         />
       </div>
 
