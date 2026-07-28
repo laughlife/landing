@@ -153,7 +153,7 @@ pnpm test:unit
 默认不会把运行时上传文件放入发布包。确实需要连同当前 `storage/uploads` 一起交付时，在 PowerShell 中显式执行：
 
 ```powershell
-.\package-release.ps1 -IncludeUploads
+.\scripts\package-release.ps1 -IncludeUploads
 ```
 
 脚本仅在新包构建、压缩和内容校验全部成功后替换旧的 `nywysm.zip`；失败时保留旧发布包。

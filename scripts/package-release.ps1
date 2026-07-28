@@ -7,7 +7,14 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$projectRoot = (Resolve-Path -LiteralPath $PSScriptRoot).Path
+$scriptDirectory = (Resolve-Path -LiteralPath $PSScriptRoot).Path
+$projectRoot = if (Test-Path -LiteralPath (Join-Path $scriptDirectory 'package.json') -PathType Leaf) {
+  $scriptDirectory
+} elseif (Test-Path -LiteralPath (Join-Path $scriptDirectory '../package.json') -PathType Leaf) {
+  (Resolve-Path -LiteralPath (Join-Path $scriptDirectory '..')).Path
+} else {
+  throw "无法根据脚本位置找到项目根目录：$scriptDirectory"
+}
 $outputPath = Join-Path $projectRoot 'nywysm.zip'
 $releaseId = [Guid]::NewGuid().ToString('N')
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "nywysm-release-$releaseId"
