@@ -1,4 +1,4 @@
-export type AdminContentFieldKind = 'text' | 'textarea' | 'richtext' | 'number' | 'select' | 'switch' | 'datetime' | 'string-list' | 'steps'
+export type AdminContentFieldKind = 'text' | 'textarea' | 'richtext' | 'number' | 'select' | 'switch' | 'datetime' | 'string-list' | 'steps' | 'media'
 
 export interface AdminContentSelectOption {
   label: string

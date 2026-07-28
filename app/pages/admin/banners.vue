@@ -10,8 +10,8 @@ const statusOptions = [
 const fields = [
   { key: 'title', label: '标题', required: true, wide: true },
   { key: 'subtitle', label: '副标题', kind: 'textarea', wide: true },
-  { key: 'image', label: 'PC 图片地址', placeholder: '/uploads/...' },
-  { key: 'mobileImage', label: '移动端图片地址', placeholder: '/uploads/...' },
+  { key: 'image', label: 'PC 图片', kind: 'media' },
+  { key: 'mobileImage', label: '移动端图片', kind: 'media' },
   { key: 'buttonText', label: '按钮文字' },
   { key: 'buttonLink', label: '按钮链接', placeholder: '/contact 或 https://...' },
   { key: 'position', label: '展示位置', required: true },

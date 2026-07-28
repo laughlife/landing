@@ -11,7 +11,7 @@ const fields = [
   { key: 'name', label: '服务名称', required: true },
   { key: 'slug', label: 'Slug', required: true, placeholder: 'service-name' },
   { key: 'icon', label: '图标', placeholder: 'i-lucide-handshake', description: '填写 Iconify 图标名称。' },
-  { key: 'coverImage', label: '封面图地址', placeholder: '/uploads/...' },
+  { key: 'coverImage', label: '封面图', kind: 'media' },
   { key: 'summary', label: '服务摘要', kind: 'textarea', wide: true },
   { key: 'description', label: '详细介绍', kind: 'richtext', wide: true, description: '使用富文本工具栏维护详情内容。' },
   { key: 'features', label: '服务特点', kind: 'string-list', wide: true, placeholder: '输入一项服务特点' },

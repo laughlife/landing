@@ -502,6 +502,11 @@ onMounted(() => void loadRows())
                 class="w-full"
                 @update:model-value="setField(field.key, $event)"
               />
+              <AdminMediaPicker
+                v-else-if="field.kind === 'media'"
+                :model-value="String(form[field.key] ?? '')"
+                @update:model-value="setField(field.key, $event)"
+              />
               <div
                 v-else-if="field.kind === 'string-list'"
                 class="space-y-2"
