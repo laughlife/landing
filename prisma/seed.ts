@@ -21,12 +21,22 @@ async function seedAdmin() {
   }
 
   const existing = await prisma.adminUser.findUnique({ where: { username } })
+  const passwordHash = await passwordHasher.make(password)
   if (!existing) {
     await prisma.adminUser.create({
       data: {
         username,
-        passwordHash: await passwordHasher.make(password),
+        passwordHash,
         displayName: '超级管理员',
+        role: 'SUPER_ADMIN',
+        status: 'ENABLED'
+      }
+    })
+  } else if (process.env.NODE_ENV === 'test') {
+    await prisma.adminUser.update({
+      where: { id: existing.id },
+      data: {
+        passwordHash,
         role: 'SUPER_ADMIN',
         status: 'ENABLED'
       }

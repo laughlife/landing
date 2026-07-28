@@ -37,24 +37,32 @@ if (testUploadDirectory !== expectedUploadDirectory) {
 mkdirSync(testUploadDirectory, { recursive: true })
 
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-const args = mode === 'deploy'
-  ? ['exec', 'prisma', 'migrate', 'deploy']
+const command = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : pnpm
+const migrateCommand = ['exec', 'prisma', 'migrate', 'deploy']
+const seedCommand = ['exec', 'prisma', 'db', 'seed']
+const commands = mode === 'deploy'
+  ? [migrateCommand]
   : mode === 'seed'
-    ? ['exec', 'prisma', 'db', 'seed']
+    ? [seedCommand]
     : mode === 'integration'
-      ? ['exec', 'vitest', 'run', '--project', 'integration', '--sequence.concurrent', 'false']
-      : ['exec', 'playwright', 'test']
-const result = spawnSync(pnpm, args, {
-  cwd: projectRoot,
-  shell: process.platform === 'win32',
-  env: {
-    ...process.env,
-    NODE_ENV: 'test',
-    DATABASE_URL: testDatabaseUrl,
-    UPLOAD_DIR: testUploadDirectory
-  },
-  stdio: 'inherit'
-})
+      ? [migrateCommand, seedCommand, ['exec', 'vitest', 'run', '--project', 'integration', '--sequence.concurrent', 'false']]
+      : [migrateCommand, seedCommand, ['exec', 'playwright', 'test']]
 
-if (result.error) throw result.error
-process.exit(result.status ?? 1)
+for (const args of commands) {
+  const commandArgs = process.platform === 'win32'
+    ? ['/d', '/s', '/c', [pnpm, ...args].join(' ')]
+    : args
+  const result = spawnSync(command, commandArgs, {
+    cwd: projectRoot,
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      DATABASE_URL: testDatabaseUrl,
+      UPLOAD_DIR: testUploadDirectory
+    },
+    stdio: 'inherit'
+  })
+
+  if (result.error) throw result.error
+  if (result.status !== 0) process.exit(result.status ?? 1)
+}

@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { defineConfig, devices } from '@playwright/test'
 import { resolve } from 'node:path'
 
@@ -26,6 +27,10 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: 1,
+  timeout: 90_000,
+  expect: {
+    timeout: 10_000
+  },
   reporter: [
     ['list'],
     ['html', { open: 'never' }]
@@ -44,6 +49,7 @@ export default defineConfig({
     env: {
       ...process.env,
       NODE_ENV: 'test',
+      NUXT_IGNORE_LOCK: '1',
       DATABASE_URL: testDatabaseUrl,
       UPLOAD_DIR: testUploadDirectory,
       NUXT_PUBLIC_SITE_URL: baseURL
@@ -52,11 +58,11 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
+      use: { ...devices['Desktop Chrome'], channel: 'chrome' }
     },
     {
       name: 'mobile-chromium',
-      use: { ...devices['Pixel 7'] }
+      use: { ...devices['Pixel 7'], channel: 'chrome' }
     }
   ]
 })

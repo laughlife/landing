@@ -179,7 +179,7 @@ pnpm test:integration
 pnpm test:e2e
 ```
 
-端到端测试固定在 `127.0.0.1:3101` 启动独立 Nuxt 服务，`reuseExistingServer` 已禁用。
+`test:integration` 与 `test:e2e` 会先在受保护的 `wysm_test` 上执行迁移和幂等 Seed，再运行测试。端到端测试固定在 `127.0.0.1:3101` 启动独立 Nuxt 服务，`reuseExistingServer` 已禁用，并使用本机已安装的 Google Chrome。
 
 ## 17. Windows 部署注意事项
 
@@ -222,7 +222,7 @@ server {
 
 **恢复失败**：保留恢复前自动备份和错误输出，核对目标数据库、应用迁移版本及备份清单；不要通过删除数据库或执行重置命令解决。
 
-**端到端测试无法启动浏览器**：安装测试依赖后执行 `pnpm exec playwright install chromium`。
+**端到端测试无法启动浏览器**：确认本机已安装 Google Chrome；当前 Playwright 配置使用 `channel: 'chrome'`，不会复用日常浏览器会话。
 
 ## 21. 安全注意事项
 
