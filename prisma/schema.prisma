@@ -1,0 +1,378 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../server/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  EDITOR
+}
+
+enum AdminStatus {
+  ENABLED
+  DISABLED
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  DISABLED
+}
+
+enum DisplayStatus {
+  ENABLED
+  DISABLED
+}
+
+enum MessageStatus {
+  NEW
+  PROCESSING
+  RESOLVED
+  SPAM
+}
+
+enum MediaCategory {
+  IMAGE
+  DOCUMENT
+  OTHER
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  PUBLISH
+  DISABLE
+  UPLOAD
+  DELETE_FILE
+  UPDATE_ADMIN
+}
+
+model AdminUser {
+  id           Int         @id @default(autoincrement()) @db.UnsignedInt
+  username     String      @unique @db.VarChar(64)
+  passwordHash String      @map("password_hash") @db.VarChar(255)
+  displayName  String      @map("display_name") @db.VarChar(100)
+  email        String?     @unique @db.VarChar(254)
+  avatar       String?     @db.VarChar(1024)
+  role         AdminRole   @default(SUPER_ADMIN)
+  status       AdminStatus @default(ENABLED)
+  lastLoginAt  DateTime?   @map("last_login_at") @db.DateTime(3)
+  lastLoginIp  String?     @map("last_login_ip") @db.VarChar(45)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.DateTime(3)
+
+  auditLogs  AuditLog[]  @relation("AuditLogActor")
+  mediaFiles MediaFile[] @relation("MediaFileCreator")
+
+  @@index([status])
+  @@map("portal_admin_users")
+}
+
+model CompanyProfile {
+  /// Application code always uses the fixed singleton id 1.
+  id               Int      @id @db.UnsignedInt
+  companyName      String   @map("company_name") @db.VarChar(200)
+  shortName        String?  @map("short_name") @db.VarChar(100)
+  slogan           String?  @db.VarChar(255)
+  logo             String?  @db.VarChar(1024)
+  favicon          String?  @db.VarChar(1024)
+  heroTitle        String?  @map("hero_title") @db.VarChar(255)
+  heroSubtitle     String?  @map("hero_subtitle") @db.VarChar(1000)
+  introduction     String?  @db.Text
+  fullDescription  String?  @map("full_description") @db.LongText
+  businessScope    String?  @map("business_scope") @db.LongText
+  advantages       Json?
+  address          String?  @db.VarChar(500)
+  phone            String?  @db.VarChar(64)
+  email            String?  @db.VarChar(254)
+  wechat           String?  @db.VarChar(128)
+  whatsapp         String?  @db.VarChar(128)
+  workingHours     String?  @map("working_hours") @db.VarChar(255)
+  latitude         Decimal? @db.Decimal(10, 7)
+  longitude        Decimal? @db.Decimal(10, 7)
+  registrationInfo String?  @map("registration_info") @db.VarChar(500)
+  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@map("portal_company_profiles")
+}
+
+model SiteSetting {
+  /// Application code always uses the fixed singleton id 1.
+  id              Int      @id @db.UnsignedInt
+  siteName        String   @map("site_name") @db.VarChar(200)
+  siteUrl         String?  @map("site_url") @db.VarChar(1024)
+  siteTitle       String?  @map("site_title") @db.VarChar(255)
+  siteKeywords    String?  @map("site_keywords") @db.VarChar(500)
+  siteDescription String?  @map("site_description") @db.Text
+  logo            String?  @db.VarChar(1024)
+  favicon         String?  @db.VarChar(1024)
+  footerText      String?  @map("footer_text") @db.Text
+  copyright       String?  @db.VarChar(500)
+  icpNumber       String?  @map("icp_number") @db.VarChar(100)
+  themeConfig     Json?    @map("theme_config")
+  socialLinks     Json?    @map("social_links")
+  contactConfig   Json?    @map("contact_config")
+  createdAt       DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@map("portal_site_settings")
+}
+
+model ProductCategory {
+  id             Int           @id @default(autoincrement()) @db.UnsignedInt
+  parentId       Int?          @map("parent_id") @db.UnsignedInt
+  name           String        @db.VarChar(150)
+  slug           String        @unique @db.VarChar(191)
+  summary        String?       @db.Text
+  description    String?       @db.LongText
+  coverImage     String?       @map("cover_image") @db.VarChar(1024)
+  icon           String?       @db.VarChar(255)
+  sortOrder      Int           @default(0) @map("sort_order")
+  status         DisplayStatus @default(ENABLED)
+  seoTitle       String?       @map("seo_title") @db.VarChar(255)
+  seoKeywords    String?       @map("seo_keywords") @db.VarChar(500)
+  seoDescription String?       @map("seo_description") @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.DateTime(3)
+
+  parent   ProductCategory?  @relation("ProductCategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  children ProductCategory[] @relation("ProductCategoryHierarchy")
+  products Product[]
+
+  @@index([parentId, sortOrder])
+  @@index([status, sortOrder])
+  @@map("portal_product_categories")
+}
+
+model Product {
+  id             Int           @id @default(autoincrement()) @db.UnsignedInt
+  categoryId     Int           @map("category_id") @db.UnsignedInt
+  name           String        @db.VarChar(200)
+  slug           String        @unique @db.VarChar(191)
+  model          String?       @db.VarChar(150)
+  subtitle       String?       @db.VarChar(500)
+  summary        String?       @db.Text
+  description    String?       @db.LongText
+  coverImage     String?       @map("cover_image") @db.VarChar(1024)
+  videoUrl       String?       @map("video_url") @db.VarChar(1024)
+  features       Json?
+  applications   Json?
+  specifications Json?
+  sortOrder      Int           @default(0) @map("sort_order")
+  isFeatured     Boolean       @default(false) @map("is_featured")
+  status         ContentStatus @default(DRAFT)
+  viewCount      Int           @default(0) @map("view_count") @db.UnsignedInt
+  seoTitle       String?       @map("seo_title") @db.VarChar(255)
+  seoKeywords    String?       @map("seo_keywords") @db.VarChar(500)
+  seoDescription String?       @map("seo_description") @db.Text
+  publishedAt    DateTime?     @map("published_at") @db.DateTime(3)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.DateTime(3)
+
+  category        ProductCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  images          ProductImage[]
+  contactMessages ContactMessage[]
+
+  @@index([categoryId, status, sortOrder])
+  @@index([status, isFeatured, sortOrder])
+  @@index([status, publishedAt])
+  @@map("portal_products")
+}
+
+model ProductImage {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  productId Int      @map("product_id") @db.UnsignedInt
+  mediaId   Int      @map("media_id") @db.UnsignedInt
+  imageUrl  String   @map("image_url") @db.VarChar(1024)
+  altText   String?  @map("alt_text") @db.VarChar(255)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  product Product   @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  media   MediaFile @relation(fields: [mediaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([productId, sortOrder])
+  @@index([mediaId])
+  @@map("portal_product_images")
+}
+
+model Partner {
+  id              Int           @id @default(autoincrement()) @db.UnsignedInt
+  name            String        @db.VarChar(200)
+  slug            String        @unique @db.VarChar(191)
+  logo            String?       @db.VarChar(1024)
+  coverImage      String?       @map("cover_image") @db.VarChar(1024)
+  summary         String?       @db.Text
+  description     String?       @db.LongText
+  website         String?       @db.VarChar(1024)
+  cooperationType String?       @map("cooperation_type") @db.VarChar(100)
+  sortOrder       Int           @default(0) @map("sort_order")
+  isFeatured      Boolean       @default(false) @map("is_featured")
+  status          DisplayStatus @default(ENABLED)
+  seoTitle        String?       @map("seo_title") @db.VarChar(255)
+  seoDescription  String?       @map("seo_description") @db.Text
+  createdAt       DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@index([status, isFeatured, sortOrder])
+  @@map("portal_partners")
+}
+
+model ServiceItem {
+  id             Int           @id @default(autoincrement()) @db.UnsignedInt
+  name           String        @db.VarChar(200)
+  slug           String        @unique @db.VarChar(191)
+  icon           String?       @db.VarChar(255)
+  coverImage     String?       @map("cover_image") @db.VarChar(1024)
+  summary        String?       @db.Text
+  description    String?       @db.LongText
+  features       Json?
+  processSteps   Json?         @map("process_steps")
+  sortOrder      Int           @default(0) @map("sort_order")
+  isFeatured     Boolean       @default(false) @map("is_featured")
+  status         DisplayStatus @default(ENABLED)
+  seoTitle       String?       @map("seo_title") @db.VarChar(255)
+  seoDescription String?       @map("seo_description") @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@index([status, isFeatured, sortOrder])
+  @@map("portal_service_items")
+}
+
+model Banner {
+  id          Int           @id @default(autoincrement()) @db.UnsignedInt
+  title       String        @db.VarChar(255)
+  subtitle    String?       @db.VarChar(1000)
+  image       String?       @db.VarChar(1024)
+  mobileImage String?       @map("mobile_image") @db.VarChar(1024)
+  buttonText  String?       @map("button_text") @db.VarChar(100)
+  buttonLink  String?       @map("button_link") @db.VarChar(1024)
+  position    String        @default("HOME_HERO") @db.VarChar(64)
+  sortOrder   Int           @default(0) @map("sort_order")
+  status      DisplayStatus @default(ENABLED)
+  startAt     DateTime?     @map("start_at") @db.DateTime(3)
+  endAt       DateTime?     @map("end_at") @db.DateTime(3)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@index([position, status, startAt, endAt, sortOrder])
+  @@map("portal_banners")
+}
+
+model Article {
+  id             Int           @id @default(autoincrement()) @db.UnsignedInt
+  title          String        @db.VarChar(255)
+  slug           String        @unique @db.VarChar(191)
+  summary        String?       @db.Text
+  content        String?       @db.LongText
+  coverImage     String?       @map("cover_image") @db.VarChar(1024)
+  author         String?       @db.VarChar(100)
+  status         ContentStatus @default(DRAFT)
+  isFeatured     Boolean       @default(false) @map("is_featured")
+  sortOrder      Int           @default(0) @map("sort_order")
+  seoTitle       String?       @map("seo_title") @db.VarChar(255)
+  seoKeywords    String?       @map("seo_keywords") @db.VarChar(500)
+  seoDescription String?       @map("seo_description") @db.Text
+  publishedAt    DateTime?     @map("published_at") @db.DateTime(3)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@index([status, publishedAt])
+  @@index([status, isFeatured, sortOrder])
+  @@map("portal_articles")
+}
+
+model ContactMessage {
+  id          Int           @id @default(autoincrement()) @db.UnsignedInt
+  name        String        @db.VarChar(100)
+  company     String?       @db.VarChar(200)
+  phone       String?       @db.VarChar(64)
+  email       String?       @db.VarChar(254)
+  subject     String?       @db.VarChar(255)
+  message     String        @db.Text
+  sourcePage  String?       @map("source_page") @db.VarChar(1024)
+  productId   Int?          @map("product_id") @db.UnsignedInt
+  ipAddress   String?       @map("ip_address") @db.VarChar(45)
+  userAgent   String?       @map("user_agent") @db.VarChar(512)
+  status      MessageStatus @default(NEW)
+  adminRemark String?       @map("admin_remark") @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.DateTime(3)
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([status, createdAt])
+  @@index([productId])
+  @@map("portal_contact_messages")
+}
+
+model MediaFile {
+  id           Int           @id @default(autoincrement()) @db.UnsignedInt
+  originalName String        @map("original_name") @db.VarChar(512)
+  storedName   String        @unique @map("stored_name") @db.VarChar(255)
+  relativePath String        @unique @map("relative_path") @db.VarChar(700)
+  url          String        @db.VarChar(1024)
+  mimeType     String        @map("mime_type") @db.VarChar(127)
+  extension    String        @db.VarChar(20)
+  size         Int           @db.UnsignedInt
+  width        Int?          @db.UnsignedInt
+  height       Int?          @db.UnsignedInt
+  checksum     String        @db.Char(64)
+  category     MediaCategory @default(IMAGE)
+  createdBy    Int?          @map("created_by") @db.UnsignedInt
+  createdAt    DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+
+  creator         AdminUser?       @relation("MediaFileCreator", fields: [createdBy], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  productImages   ProductImage[]
+  mediaReferences MediaReference[]
+
+  @@index([checksum])
+  @@index([category, createdAt])
+  @@index([createdBy, createdAt])
+  @@map("portal_media_files")
+}
+
+/// A centralized, application-maintained reference ledger for assets stored as URL fields.
+model MediaReference {
+  id           Int      @id @default(autoincrement()) @db.UnsignedInt
+  mediaId      Int      @map("media_id") @db.UnsignedInt
+  resourceType String   @map("resource_type") @db.VarChar(64)
+  resourceId   Int      @map("resource_id") @db.UnsignedInt
+  field        String   @db.VarChar(64)
+  createdAt    DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  media MediaFile @relation(fields: [mediaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([mediaId, resourceType, resourceId, field])
+  @@index([resourceType, resourceId])
+  @@map("portal_media_references")
+}
+
+model AuditLog {
+  id          Int         @id @default(autoincrement()) @db.UnsignedInt
+  adminUserId Int?        @map("admin_user_id") @db.UnsignedInt
+  module      String      @db.VarChar(64)
+  action      AuditAction
+  targetType  String?     @map("target_type") @db.VarChar(64)
+  targetId    String?     @map("target_id") @db.VarChar(64)
+  summary     String      @db.VarChar(1000)
+  ipAddress   String?     @map("ip_address") @db.VarChar(45)
+  userAgent   String?     @map("user_agent") @db.VarChar(512)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.DateTime(3)
+
+  adminUser AdminUser? @relation("AuditLogActor", fields: [adminUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([adminUserId, createdAt])
+  @@index([module, createdAt])
+  @@index([targetType, targetId])
+  @@map("portal_audit_logs")
+}

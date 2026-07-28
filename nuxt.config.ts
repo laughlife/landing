@@ -2,10 +2,10 @@
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
-    '@nuxt/content',
     '@nuxt/ui',
     '@vueuse/nuxt',
-    'motion-v/nuxt'
+    'motion-v/nuxt',
+    'nuxt-auth-utils'
   ],
 
   devtools: {
@@ -14,27 +14,25 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  content: {
-    experimental: {
-      sqliteConnector: 'native'
-    }
-  },
-
-  mdc: {
-    highlight: {
-      noApiRoute: false
+  runtimeConfig: {
+    databaseUrl: process.env.DATABASE_URL,
+    uploadDir: process.env.UPLOAD_DIR || './storage/uploads',
+    maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 10),
+    session: {
+      maxAge: 60 * 60 * 24 * 7,
+      cookie: {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    },
+    public: {
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+      siteName: process.env.NUXT_PUBLIC_SITE_NAME || '南阳市吴月商贸行'
     }
   },
 
   compatibilityDate: '2026-06-30',
-
-  nitro: {
-    prerender: {
-      routes: [
-        '/'
-      ]
-    }
-  },
 
   eslint: {
     config: {

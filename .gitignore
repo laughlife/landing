@@ -23,5 +23,11 @@ logs
 .env.*
 !.env.example
 
+# Runtime data and generated clients
+storage/uploads/*
+!storage/uploads/.gitkeep
+backups/
+server/generated/prisma/
+
 #VSC
 .history
