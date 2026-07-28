@@ -50,7 +50,7 @@ async function seedCompanyAndSettings() {
     update: {},
     create: {
       id: 1,
-      companyName: '南阳市吴月商贸行（个人独资）',
+      companyName: '南阳市吴月商贸行',
       shortName: '吴月商贸',
       slogan: '连接优质产品，成就长期合作',
       logo: '/wuyue.png',
@@ -82,7 +82,7 @@ async function seedCompanyAndSettings() {
       logo: '/wuyue.png',
       favicon: '/favicon.ico',
       footerText: '以可靠供应与专业服务，连接每一次长期合作。',
-      copyright: '南阳市吴月商贸行（个人独资）',
+      copyright: '南阳市吴月商贸行',
       themeConfig: { primary: 'blue', neutral: 'slate' },
       socialLinks: [],
       contactConfig: {

@@ -23,7 +23,7 @@ const links = [
     <template #left>
       <div class="text-sm text-dimmed">
         <p>
-          {{ site?.footerText || site?.copyright || '南阳市吴月商贸行（个人独资）' }}
+          {{ site?.footerText || site?.copyright || '南阳市吴月商贸行' }}
         </p>
         <p
           v-if="site?.icpNumber"
