@@ -13,7 +13,7 @@ interface FieldDefinition {
   required?: boolean
   placeholder?: string
   description?: string
-  options?: SelectOption[]
+  options?: readonly SelectOption[]
   wide?: boolean
 }
 
@@ -55,10 +55,10 @@ const props = withDefaults(defineProps<{
   description: string
   singular: string
   endpoint: string
-  fields: FieldDefinition[]
-  columns: ColumnDefinition[]
+  fields: readonly FieldDefinition[]
+  columns: readonly ColumnDefinition[]
   defaults?: Record<string, unknown>
-  statusOptions?: SelectOption[]
+  statusOptions?: readonly SelectOption[]
 }>(), {
   defaults: () => ({}),
   statusOptions: () => [
@@ -91,7 +91,7 @@ const formError = ref('')
 const editorTitle = computed(() => editingId.value ? `编辑${props.singular}` : `新增${props.singular}`)
 const statusSelectOptions = computed(() => nonEmptySelectOptions(props.statusOptions))
 
-function nonEmptySelectOptions(options: SelectOption[] = []) {
+function nonEmptySelectOptions(options: readonly SelectOption[] = []) {
   return options.filter(option => option.value !== '')
 }
 

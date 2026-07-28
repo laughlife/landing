@@ -32,7 +32,7 @@ const columns = [
 </script>
 
 <template>
-  <AdminContentContentCrudPage
+  <AdminContentCrudPage
     title="首页轮播"
     description="管理桌面端与移动端轮播素材、按钮和有效时间。"
     singular="Banner"

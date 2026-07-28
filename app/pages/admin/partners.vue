@@ -33,7 +33,7 @@ const columns = [
 </script>
 
 <template>
-  <AdminContentContentCrudPage
+  <AdminContentCrudPage
     title="合作伙伴"
     description="维护合作品牌、合作类型和官网展示信息。"
     singular="合作伙伴"

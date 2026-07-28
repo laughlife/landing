@@ -33,7 +33,7 @@ const columns = [
 </script>
 
 <template>
-  <AdminContentContentCrudPage
+  <AdminContentCrudPage
     title="服务项目"
     description="维护主营服务、服务特点和可视化流程步骤。"
     singular="服务项目"
