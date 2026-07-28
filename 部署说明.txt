@@ -1,0 +1,58 @@
+南阳市吴月商贸行网站生产部署说明
+
+一、固定环境
+
+- 系统：Ubuntu 22.04，Linux x64，glibc。
+- Node.js：24 或更高版本。
+- pnpm：11.17 或更高版本。
+- 程序目录：/var/www/nywysmh/nywysm/
+- 永久上传目录：/var/www/nywysmh/storage/uploads/
+- 环境变量文件：/etc/nywysmh/nywysmh.env
+- systemd 服务：nywysmh.service
+- Nginx 配置：/etc/nginx/conf.d/nywysmh.com.conf
+
+二、部署前
+
+1. 核对 nywysm.zip.sha256。
+2. 阅读 nywysm-release-info.txt 中的提交号、迁移清单、变更与回滚注意事项。
+3. 备份数据库，并确认 /var/www/nywysmh/storage/uploads/ 不在程序替换范围内。
+4. 不要覆盖 /etc/nywysmh/nywysmh.env、Nginx、SSL 或 systemd 配置。
+5. 本次只发布 nywysmh.com 副站，不修改主站 sqsmshop.com 的程序、代理或服务配置。
+
+三、部署步骤
+
+1. 将 nywysm.zip 解压到新的版本目录，确认 ZIP 内只有 nywysm/ 顶层目录。
+2. 使用有权读取生产环境变量文件的部署账户，进入 nywysm/，先将外置环境变量加载到当前 shell，再执行迁移：
+
+   set -a
+   . /etc/nywysmh/nywysmh.env
+   set +a
+   pnpm install --frozen-lockfile --ignore-scripts --prod=false
+   pnpm db:generate
+   pnpm db:deploy
+
+3. 不要执行 prisma migrate reset，不要删除数据库，不要在常规发布时执行 pnpm db:seed。
+4. 将程序目录切换到新版本，然后执行：
+
+   sudo systemctl restart nywysmh.service
+   sudo systemctl status nywysmh.service --no-pager
+
+5. start-server.sh 仅用于发布包验收；正式环境由 systemd 注入
+   /etc/nywysmh/nywysmh.env，并执行 node .output/server/index.mjs。
+
+四、上线验收
+
+- 服务只监听 127.0.0.1:4000。
+- https://nywysmh.com/ 和 /admin/login 返回 HTTP 200。
+- 后台可以读取现有数据。
+- 上传、Sharp 图片处理和 /uploads/** 受控读取正常。
+- 新文件写入 /var/www/nywysmh/storage/uploads/，重启和替换程序目录后仍存在。
+- HTTPS 下 Secure Cookie、真实访客 IP、限流、Canonical URL 和 Sitemap 正常。
+- 日志不包含数据库密码、会话密钥、内部绝对路径或完整异常栈。
+- 主站 sqsmshop.com 访问和服务状态不受影响。
+
+五、回滚
+
+- 程序回滚只切换回上一份已验收的程序目录，不触碰永久上传目录和外置环境变量。
+- Prisma 迁移按向前升级设计；不要直接回滚数据库结构。若新版本迁移不兼容，必须依据本次发布
+  的专项回滚方案和部署前数据库备份处理。

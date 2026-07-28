@@ -1,4 +1,4 @@
-import { setHeader } from 'h3'
+import { getRequestURL, setHeader } from 'h3'
 import { prisma } from '../utils/db'
 
 function escapeXml(value: string): string {
@@ -12,7 +12,7 @@ function escapeXml(value: string): string {
 }
 
 export default defineCachedEventHandler(async (event) => {
-  const origin = process.env.NUXT_PUBLIC_SITE_URL || `${event.node.req.headers['x-forwarded-proto'] ?? 'http'}://${event.node.req.headers.host ?? 'localhost:3000'}`
+  const origin = process.env.NUXT_PUBLIC_SITE_URL || getRequestURL(event).origin
   const [categories, products, services, articles] = await Promise.all([
     prisma.productCategory.findMany({ where: { status: 'ENABLED' }, select: { slug: true, updatedAt: true } }),
     prisma.product.findMany({ where: { status: 'PUBLISHED' }, select: { slug: true, updatedAt: true } }),

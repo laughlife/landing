@@ -35,7 +35,8 @@ public/              随源码发布的静态资源
 - Node.js 24.0 或更高版本（当前项目使用 Node 24）。
 - pnpm 11.17 或更高版本；请勿混用 npm 或 yarn。
 - MySQL 8.0+ 或兼容的 MariaDB，字符集使用 `utf8mb4`。
-- Windows PowerShell 7+。
+- 本地 Windows 开发使用 PowerShell 7+。
+- 正式发布包必须在 Ubuntu 22.04 Linux x64 构建；Windows 一键入口依赖 WSL Ubuntu。
 - 运行浏览器端到端测试时需要 Chromium。
 
 ## 6. 安装依赖
@@ -128,50 +129,84 @@ pnpm dev
 
 项目不再内置数据库和上传文件的备份、恢复脚本。生产环境请使用数据库平台、主机快照或经过审核的运维系统统一备份 MySQL 与 `storage/uploads`，并在恢复前确认应用版本、数据库迁移版本和上传文件快照一致。
 
-## 15. 生产构建
+## 15. 发布前检查
 
-```powershell
+正式发布必须使用 Ubuntu 22.04、Linux x64、Node.js 24+ 和 pnpm 11.17+。Windows 生成的 `.output` 只能用于本机调试，不能直接交付生产。
+
+发布脚本会从干净且已提交的 Git 版本创建 Linux 临时构建目录，并依次执行：
+
+```bash
+pnpm install --frozen-lockfile --ignore-scripts --prod=false
+pnpm db:generate
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm preview
 ```
 
-生产部署前应先在独立测试数据库完成迁移、Seed、接口测试与端到端测试。
+脚本随后检查 Linux Sharp、Windows 原生依赖、禁止路径、发布包结构、ZIP 完整性和 LF 启动脚本。数据库迁移、现有业务数据、HTTPS、上传持久化和日志仍必须在隔离的生产等价环境中完成验收。
 
-隔离测试必须配置 `TEST_DATABASE_URL`，并且数据库名只能是 `wysm_test`；测试上传目录固定为 `./storage/test-uploads`。测试入口会拒绝连接 `wysm` 或复用现有开发服务：
+## 16. 生成 Linux 发布包
 
-```powershell
-pnpm test:unit
+在 Linux x64 构建机或 WSL Ubuntu 中执行：
+
+```bash
+bash scripts/package-release.sh
 ```
 
-## 16. 一键生成发布包
+Windows 可双击根目录的 `一键生成发布包.cmd`。该入口只负责调用 WSL 中的 Linux 脚本，不再使用 Windows 构建生产产物。WSL 内需要预先安装 Node.js 24+、pnpm 11.17+、Git、zip 和 unzip。
 
-双击项目根目录的 `一键生成发布包.cmd`，程序会自动执行生产构建并在项目根目录生成 `nywysm.zip`。压缩包使用 `nywysm/` 作为顶层目录，包含生产运行文件、数据库迁移、环境变量模板、依赖锁文件和部署说明；不会包含真实 `.env`、Git 数据、测试文件、开发缓存或项目根 `node_modules`。
+成功后在项目根目录生成：
 
-发布包使用独立的 `.env.release.example` 模板：MySQL 端口为 `8866`，Nuxt/Nitro 监听 `0.0.0.0:4000`。本地开发配置和默认的 `3000` 端口保持不变；正式部署前应把模板中的 `NUXT_PUBLIC_SITE_URL` 换成真实域名或公网访问地址。
-
-默认不会把运行时上传文件放入发布包。确实需要连同当前 `storage/uploads` 一起交付时，在 PowerShell 中显式执行：
-
-```powershell
-.\scripts\package-release.ps1 -IncludeUploads
+```text
+nywysm.zip
+nywysm.zip.sha256
+nywysm-release-info.txt
 ```
 
-脚本仅在新包构建、压缩和内容校验全部成功后替换旧的 `nywysm.zip`；失败时保留旧发布包。
+ZIP 只有 `nywysm/` 一个顶层目录，包含已经构建好的 `.output`、全部 Prisma 迁移、生成的 Prisma Client、三份一致的 pnpm 文件、无敏感信息的环境模板、Linux 启动脚本和部署说明。脚本禁止打包 `.env`、测试文件、Windows 原生依赖和任何 `storage/uploads/` 内容。
 
-## 17. Windows 部署注意事项
+## 17. 生产环境约定
 
-- 使用受支持的 Node.js LTS/当前项目锁定版本和 pnpm；服务账户必须能读取 `.env`、写入上传目录。
-- 通过任务计划程序、Windows Service 或受控进程管理器运行 `node .output/server/index.mjs`，不要以管理员账户长期运行。
-- 配置防火墙仅开放反向代理所需端口；MySQL 不应直接暴露到公网。
+- 程序目录：`/var/www/nywysmh/nywysm/`
+- 永久上传目录：`/var/www/nywysmh/storage/uploads/`
+- 生产环境变量：`/etc/nywysmh/nywysmh.env`
+- 应用监听：`127.0.0.1:4000`
+- 正式域名：`https://nywysmh.com`、`https://www.nywysmh.com`
+- systemd 服务：`nywysmh.service`
+- Nginx 配置：`/etc/nginx/conf.d/nywysmh.com.conf`
 
-## 18. Nginx 反向代理示例
+发布包不得覆盖服务器维护的环境变量、Nginx、SSL 或 systemd 配置。生产环境使用 `.env.release.example` 中列出的变量名，但真实密码和密钥只保存在 `/etc/nywysmh/nywysmh.env`。
+
+## 18. 数据库升级与启动
+
+生产数据库 `wysm` 已包含业务数据。使用有权读取 `/etc/nywysmh/nywysmh.env` 的部署账户，进入新版本程序目录，将外置环境变量加载到当前 shell 后再执行：
+
+```bash
+set -a
+. /etc/nywysmh/nywysmh.env
+set +a
+pnpm install --frozen-lockfile --ignore-scripts --prod=false
+pnpm db:generate
+pnpm db:deploy
+```
+
+禁止执行 `prisma migrate reset`、删除数据库、清空业务表或在常规发布时自动执行 Seed。`pnpm db:seed` 仅限全新空数据库首次初始化，并且必须由运维人员明确确认后手工执行。
+
+正式服务由 systemd 注入 `/etc/nywysmh/nywysmh.env`，运行入口固定为：
+
+```bash
+node .output/server/index.mjs
+```
+
+`start-server.sh` 只用于发布包验收，不会构建、迁移、Seed 或修改环境变量。
+
+## 19. Nginx 反向代理约定
 
 ```nginx
 server {
   listen 80;
-  server_name example.com;
+  server_name nywysmh.com www.nywysmh.com;
 
   client_max_body_size 20m;
 
@@ -186,23 +221,33 @@ server {
 }
 ```
 
-生产站点必须启用 HTTPS。生产模式下 Cookie 会启用 `Secure`；当应用端口仅对受信任的本机反向代理开放时，设置 `TRUST_PROXY=true` 以正确记录访客 IP 并执行按 IP 限流。应用若可被公网直接访问，不得开启该选项。
+Nginx 和 SSL 已由生产服务器维护，发布包不修改它们。生产环境固定设置 `TRUST_PROXY=true`，应用使用 `X-Forwarded-For` 记录真实访客 IP；应用端口只监听 `127.0.0.1`，不得直接暴露公网。
 
-## 19. 上传目录权限
+## 20. 上传目录与回滚
 
-仅授予应用服务账户对 `storage/uploads` 的读取和写入权限；不要给 Web 服务进程整个项目目录的修改权限。上传目录不可作为任意静态目录暴露，必须经受控 `/uploads/**` 路由访问。
+- 仅授予应用服务账户对 `/var/www/nywysmh/storage/uploads/` 的读写权限。
+- 上传目录始终位于程序目录外，不随 ZIP 交付，也不在切换或清理版本时删除。
+- 上传文件只通过应用的受控 `/uploads/**` 路由读取，不把目录作为任意静态目录暴露。
+- 程序回滚只切换到上一份已验收版本，不覆盖外置环境变量，不触碰永久上传目录。
+- Prisma 迁移按向前升级处理；数据库恢复必须使用部署前备份和本次发布的专项回滚方案。
 
-## 20. 常见问题
+## 21. 发布包验收
 
-**构建提示模块无法解析**：先关闭并发安装任务，再执行 `pnpm install --force` 重建 `node_modules` 链接，随后运行 `pnpm lint`、`pnpm typecheck` 与 `pnpm build`。
+最终 `nywysm.zip` 必须在干净 Ubuntu 22.04 Linux x64 环境解压并验收，至少确认：
 
-**备份脚本找不到 MySQL 工具**：将 MySQL `bin` 目录添加到 `PATH`，或设置 `MYSQL_BIN`。例如：`$env:MYSQL_BIN = 'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin'`。
+- `unzip -t`、UTF-8 中文文件名和 frozen lockfile 安装通过。
+- `pnpm db:generate` 与对已迁移数据库执行 `pnpm db:deploy` 通过。
+- Linux Sharp 可加载，不包含 `@img/sharp-win32-x64`。
+- `node .output/server/index.mjs` 可直接启动且只监听 `127.0.0.1:4000`。
+- 首页和 `/admin/login` 返回 HTTP 200，后台可读取现有业务数据。
+- 上传、图片处理、文件读取和外置目录持久化正常。
+- HTTPS 下 Secure Cookie、真实访客 IP、限流、Canonical URL 和 Sitemap 正常。
+- 日志不泄漏数据库密码、会话密钥、内部绝对路径或完整异常栈。
+- 主站 `sqsmshop.com` 的程序、代理和服务状态不受副站发布影响。
 
-**恢复失败**：保留恢复前自动备份和错误输出，核对目标数据库、应用迁移版本及备份清单；不要通过删除数据库或执行重置命令解决。
+只有全部验收通过后才能将发布包标记为“可发布”。
 
-**端到端测试无法启动浏览器**：确认本机已安装 Google Chrome；当前 Playwright 配置使用 `channel: 'chrome'`，不会复用日常浏览器会话。
-
-## 21. 安全注意事项
+## 22. 安全注意事项
 
 - 所有后台写接口必须在服务端验证会话、角色、Origin/CSRF 防护与 Zod 输入。
 - 永远不要把数据库 URL、会话密钥、管理员密码或备份文件提交到 Git。
@@ -210,6 +255,6 @@ server {
 - 生产错误响应不得返回 SQL、绝对路径、调用栈、Session 或 Prisma 内部错误。
 - 定期检查管理员、上传文件和审计日志，并在正式环境使用 HTTPS。
 
-## 22. 正式部署前更换密码
+## 23. 正式部署前更换密码
 
-正式上线前必须更换数据库密码、`NUXT_SESSION_PASSWORD` 与初始管理员密码，并撤销任何已泄露或用于开发测试的凭证。变更数据库密码后，同步更新仅服务器可读的 `.env`，重启服务并验证管理员登录、上传和备份恢复流程。
+正式上线前必须更换数据库密码、`NUXT_SESSION_PASSWORD` 与初始管理员密码，并撤销任何已泄露或用于开发测试的凭证。变更数据库密码后，只更新 `/etc/nywysmh/nywysmh.env`，重启服务并验证管理员登录、上传和恢复流程。
