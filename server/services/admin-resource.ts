@@ -1,7 +1,7 @@
 import { createError, getRouterParam, type H3Event } from 'h3'
 import { readdir, rm } from 'node:fs/promises'
 import { dirname, extname, join, parse, resolve } from 'node:path'
-import { prisma } from '../utils/db'
+import { prisma, type PrismaTransactionClient } from '../utils/db'
 import { notFound, fail } from '../utils/response'
 import { isPathWithinRoot, isSafeRelativeUploadPath, sanitizeRichText } from '../utils/security'
 import { invalidateCache } from '../utils/cache'
@@ -12,18 +12,23 @@ export type AdminResource = 'products' | 'categories' | 'partners' | 'services' 
 type Delegate = { findMany: (input?: never) => Promise<unknown[]>, findUnique: (input: never) => Promise<unknown>, count: (input?: never) => Promise<number>, create: (input: never) => Promise<unknown>, update: (input: never) => Promise<unknown>, delete: (input: never) => Promise<unknown> }
 type ProductImageInput = { mediaId: number, altText?: string | null }
 type ValidatedProductImage = { mediaId: number, imageUrl: string, altText: string | null }
+type ResourceDatabaseClient = Pick<PrismaTransactionClient, 'product' | 'productCategory' | 'partner' | 'serviceItem' | 'banner' | 'article' | 'contactMessage' | 'mediaFile' | 'adminUser'>
 
-const delegates: Record<AdminResource, Delegate> = {
-  products: prisma.product as unknown as Delegate,
-  categories: prisma.productCategory as unknown as Delegate,
-  partners: prisma.partner as unknown as Delegate,
-  services: prisma.serviceItem as unknown as Delegate,
-  banners: prisma.banner as unknown as Delegate,
-  articles: prisma.article as unknown as Delegate,
-  messages: prisma.contactMessage as unknown as Delegate,
-  media: prisma.mediaFile as unknown as Delegate,
-  users: prisma.adminUser as unknown as Delegate
+function resourceDelegates(client: ResourceDatabaseClient): Record<AdminResource, Delegate> {
+  return {
+    products: client.product as unknown as Delegate,
+    categories: client.productCategory as unknown as Delegate,
+    partners: client.partner as unknown as Delegate,
+    services: client.serviceItem as unknown as Delegate,
+    banners: client.banner as unknown as Delegate,
+    articles: client.article as unknown as Delegate,
+    messages: client.contactMessage as unknown as Delegate,
+    media: client.mediaFile as unknown as Delegate,
+    users: client.adminUser as unknown as Delegate
+  }
 }
+
+const delegates = resourceDelegates(prisma)
 
 const safeAdminUserSelect = {
   id: true,
@@ -120,31 +125,27 @@ async function assertCategoryParent(id: number | null, parentId: unknown): Promi
   if (parent.id === id || parent.parentId === id) throw createError({ statusCode: 400, statusMessage: '分类不能形成循环层级' })
 }
 
-async function setProductImages(productId: number, images: unknown): Promise<void> {
-  if (!Array.isArray(images)) return
-  const validatedImages = await validateProductImages(images)
-  await prisma.$transaction(async (transaction) => {
-    await transaction.productImage.deleteMany({ where: { productId } })
-    if (validatedImages.length) {
-      await transaction.productImage.createMany({
-        data: validatedImages.map((image, index) => ({
-          productId,
-          mediaId: image.mediaId,
-          imageUrl: image.imageUrl,
-          altText: image.altText,
-          sortOrder: index
-        }))
-      })
-    }
-  })
+async function replaceProductImages(client: Pick<PrismaTransactionClient, 'productImage'>, productId: number, images: ValidatedProductImage[]): Promise<void> {
+  await client.productImage.deleteMany({ where: { productId } })
+  if (images.length) {
+    await client.productImage.createMany({
+      data: images.map((image, index) => ({
+        productId,
+        mediaId: image.mediaId,
+        imageUrl: image.imageUrl,
+        altText: image.altText,
+        sortOrder: index
+      }))
+    })
+  }
 }
 
-async function validateProductImages(images: unknown[]): Promise<ValidatedProductImage[]> {
+async function validateProductImages(client: Pick<PrismaTransactionClient, 'mediaFile'>, images: unknown[]): Promise<ValidatedProductImage[]> {
   const input = images as ProductImageInput[]
   const mediaIds = input.map(image => Number(image.mediaId))
   if (!mediaIds.length) return []
   if (new Set(mediaIds).size !== mediaIds.length) throw createError({ statusCode: 400, statusMessage: '详情图片不能重复' })
-  const media = await prisma.mediaFile.findMany({
+  const media = await client.mediaFile.findMany({
     where: { id: { in: mediaIds }, mimeType: { startsWith: 'image/' } },
     select: { id: true, url: true }
   })
@@ -168,17 +169,21 @@ async function deleteMediaFiles(relativePath: string, storedName: string): Promi
   await Promise.allSettled(names.filter(name => name === storedName || (name.startsWith(`${baseName}-`) && extname(name) === '.webp')).map(name => rm(join(directory, name), { force: true })))
 }
 
-async function countDirectMediaReferences(url: string, mediaId: number): Promise<number> {
+type MediaReferenceClient = Pick<PrismaTransactionClient, 'productImage' | 'mediaReference' | 'companyProfile' | 'siteSetting' | 'productCategory' | 'product' | 'partner' | 'serviceItem' | 'banner' | 'article' | 'adminUser'>
+
+async function countDirectMediaReferences(client: MediaReferenceClient, url: string, mediaId: number): Promise<number> {
   const counts = await Promise.all([
-    prisma.productImage.count({ where: { OR: [{ mediaId }, { imageUrl: url }] } }),
-    prisma.mediaReference.count({ where: { mediaId } }),
-    prisma.companyProfile.count({ where: { OR: [{ logo: url }, { favicon: url }] } }),
-    prisma.siteSetting.count({ where: { OR: [{ logo: url }, { favicon: url }] } }),
-    prisma.product.count({ where: { coverImage: url } }),
-    prisma.partner.count({ where: { OR: [{ logo: url }, { coverImage: url }] } }),
-    prisma.serviceItem.count({ where: { coverImage: url } }),
-    prisma.banner.count({ where: { OR: [{ image: url }, { mobileImage: url }] } }),
-    prisma.article.count({ where: { coverImage: url } })
+    client.productImage.count({ where: { OR: [{ mediaId }, { imageUrl: url }] } }),
+    client.mediaReference.count({ where: { mediaId } }),
+    client.companyProfile.count({ where: { OR: [{ logo: url }, { favicon: url }] } }),
+    client.siteSetting.count({ where: { OR: [{ logo: url }, { favicon: url }] } }),
+    client.productCategory.count({ where: { coverImage: url } }),
+    client.product.count({ where: { coverImage: url } }),
+    client.partner.count({ where: { OR: [{ logo: url }, { coverImage: url }] } }),
+    client.serviceItem.count({ where: { coverImage: url } }),
+    client.banner.count({ where: { OR: [{ image: url }, { mobileImage: url }] } }),
+    client.article.count({ where: { coverImage: url } }),
+    client.adminUser.count({ where: { avatar: url } })
   ])
   return counts.reduce((total, count) => total + count, 0)
 }
@@ -188,20 +193,26 @@ export async function createResource(event: H3Event, resource: AdminResource, in
   if (resource === 'media') fail(event, 405, 'METHOD_NOT_ALLOWED', '请使用上传接口创建媒体')
   if (resource === 'categories') await assertCategoryParent(-1, input.parentId)
   const raw = { ...input }
-  if (resource === 'products' && Array.isArray(raw.images)) await validateProductImages(raw.images)
   const data = cleanPayload(raw)
   if (resource === 'users') {
     if (typeof raw.password !== 'string' || raw.password.length < 12) fail(event, 400, 'VALIDATION_ERROR', '新管理员密码至少需要 12 位')
     data.passwordHash = await hashPassword(raw.password)
   }
   if (resource === 'products' && data.status === 'PUBLISHED') data.publishedAt = new Date()
-  const created = await delegates[resource].create({ data } as never) as { id: number }
-  if (resource === 'products') await setProductImages(created.id, raw.images)
-  await writeAudit(event, { adminUserId: actor.id, module: resource, action: data.status === 'PUBLISHED' ? 'PUBLISH' : 'CREATE', targetType: resource, targetId: created.id, summary: `新增${resourceMeta[resource].model}` })
+  const created = await prisma.$transaction(async (transaction) => {
+    const transactionDelegates = resourceDelegates(transaction)
+    const images = resource === 'products' && Array.isArray(raw.images)
+      ? await validateProductImages(transaction, raw.images)
+      : undefined
+    const item = await transactionDelegates[resource].create({ data } as never) as { id: number }
+    if (resource === 'products' && images) await replaceProductImages(transaction, item.id, images)
+    await writeAudit(event, { adminUserId: actor.id, module: resource, action: data.status === 'PUBLISHED' ? 'PUBLISH' : 'CREATE', targetType: resource, targetId: item.id, summary: `新增${resourceMeta[resource].model}` }, transaction)
+    return resource === 'users'
+      ? await transaction.adminUser.findUnique({ where: { id: item.id }, select: safeAdminUserSelect })
+      : item
+  })
   invalidateCache(...resourceMeta[resource].cache)
-  return resource === 'users'
-    ? await prisma.adminUser.findUnique({ where: { id: created.id }, select: safeAdminUserSelect })
-    : created
+  return created
 }
 
 export async function updateResource(event: H3Event, resource: AdminResource, id: number, input: Record<string, unknown>, actor: AdminSession) {
@@ -216,17 +227,23 @@ export async function updateResource(event: H3Event, resource: AdminResource, id
   }
   if (resource === 'categories') await assertCategoryParent(id, input.parentId)
   const raw = { ...input }
-  if (resource === 'products' && Array.isArray(raw.images)) await validateProductImages(raw.images)
   const data = cleanPayload(raw)
   if (resource === 'users' && raw.password) data.passwordHash = await hashPassword(String(raw.password))
   if (resource === 'products' && data.status === 'PUBLISHED') data.publishedAt = new Date()
-  const updated = await delegates[resource].update({ where: { id }, data } as never)
-  if (resource === 'products') await setProductImages(id, raw.images)
-  await writeAudit(event, { adminUserId: actor.id, module: resource, action: data.status === 'PUBLISHED' ? 'PUBLISH' : 'UPDATE', targetType: resource, targetId: id, summary: `修改${resourceMeta[resource].model}` })
+  const updated = await prisma.$transaction(async (transaction) => {
+    const transactionDelegates = resourceDelegates(transaction)
+    const images = resource === 'products' && Array.isArray(raw.images)
+      ? await validateProductImages(transaction, raw.images)
+      : undefined
+    const item = await transactionDelegates[resource].update({ where: { id }, data } as never)
+    if (resource === 'products' && images) await replaceProductImages(transaction, id, images)
+    await writeAudit(event, { adminUserId: actor.id, module: resource, action: data.status === 'PUBLISHED' ? 'PUBLISH' : 'UPDATE', targetType: resource, targetId: id, summary: `修改${resourceMeta[resource].model}` }, transaction)
+    return resource === 'users'
+      ? await transaction.adminUser.findUnique({ where: { id }, select: safeAdminUserSelect })
+      : item
+  })
   invalidateCache(...resourceMeta[resource].cache)
-  return resource === 'users'
-    ? await prisma.adminUser.findUnique({ where: { id }, select: safeAdminUserSelect })
-    : updated
+  return updated
 }
 
 export async function deleteResource(event: H3Event, resource: AdminResource, id: number, actor: AdminSession) {
@@ -237,17 +254,29 @@ export async function deleteResource(event: H3Event, resource: AdminResource, id
     if (existing.role === 'SUPER_ADMIN') fail(event, 403, 'FORBIDDEN', '不能删除超级管理员')
   }
   if (resource === 'messages' && actor.role !== 'SUPER_ADMIN') fail(event, 403, 'FORBIDDEN', '仅超级管理员可删除留言')
-  if (resource === 'categories') {
-    const [children, products] = await Promise.all([prisma.productCategory.count({ where: { parentId: id } }), prisma.product.count({ where: { categoryId: id } })])
-    if (children || products) fail(event, 409, 'CATEGORY_IN_USE', '分类下仍有子分类或产品，不能删除')
+  const deleted = await prisma.$transaction(async (transaction) => {
+    if (resource === 'categories') {
+      const [children, products] = await Promise.all([
+        transaction.productCategory.count({ where: { parentId: id } }),
+        transaction.product.count({ where: { categoryId: id } })
+      ])
+      if (children || products) fail(event, 409, 'CATEGORY_IN_USE', '分类下仍有子分类或产品，不能删除')
+    }
+    if (resource === 'media') {
+      const references = existing.url ? await countDirectMediaReferences(transaction, existing.url, id) : 0
+      if (references) fail(event, 409, 'MEDIA_IN_USE', '媒体文件仍被内容引用，不能删除')
+    }
+    const item = await resourceDelegates(transaction)[resource].delete({ where: { id } } as never)
+    await writeAudit(event, { adminUserId: actor.id, module: resource, action: resource === 'media' ? 'DELETE_FILE' : 'DELETE', targetType: resource, targetId: id, summary: `删除${resourceMeta[resource].model}` }, transaction)
+    return item
+  })
+  if (resource === 'media' && existing.relativePath && existing.storedName) {
+    try {
+      await deleteMediaFiles(existing.relativePath, existing.storedName)
+    } catch (error) {
+      console.error('[media-cleanup-error] 数据库记录已删除，但物理文件清理失败', error)
+    }
   }
-  if (resource === 'media') {
-    const references = existing.url ? await countDirectMediaReferences(existing.url, id) : 0
-    if (references) fail(event, 409, 'MEDIA_IN_USE', '媒体文件仍被内容引用，不能删除')
-  }
-  const deleted = await delegates[resource].delete({ where: { id } } as never)
-  if (resource === 'media' && existing.relativePath && existing.storedName) await deleteMediaFiles(existing.relativePath, existing.storedName)
-  await writeAudit(event, { adminUserId: actor.id, module: resource, action: resource === 'media' ? 'DELETE_FILE' : 'DELETE', targetType: resource, targetId: id, summary: `删除${resourceMeta[resource].model}` })
   invalidateCache(...resourceMeta[resource].cache)
   if (resource === 'users') {
     const { passwordHash: _passwordHash, ...safeUser } = deleted as { passwordHash: string } & Record<string, unknown>

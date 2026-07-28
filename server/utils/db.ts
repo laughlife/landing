@@ -1,5 +1,7 @@
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
-import { PrismaClient } from '../generated/prisma/client'
+import { PrismaClient, type Prisma } from '../generated/prisma/client'
+
+export type PrismaTransactionClient = Prisma.TransactionClient
 
 const DEFAULT_CONNECTION_LIMIT = 5
 
