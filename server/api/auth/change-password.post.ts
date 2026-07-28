@@ -8,16 +8,15 @@ import { writeAudit } from '../../utils/audit'
 import { withApiErrorBoundary } from '../../utils/api-error'
 
 const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1).max(128),
-  newPassword: z.string().min(12, '新密码至少需要 12 位').max(128),
-  confirmPassword: z.string().min(1).max(128)
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(1, '新密码不能为空'),
+  confirmPassword: z.string().min(1)
 }).refine(value => value.newPassword === value.confirmPassword, { message: '两次输入的新密码不一致', path: ['confirmPassword'] })
 
 export default defineEventHandler(async (event) => {
   assertSameOrigin(event)
   const actor = await requireAdminSession(event)
   const input = await parseRequestBody(event, changePasswordSchema)
-  if (input.currentPassword === input.newPassword) fail(event, 400, 'VALIDATION_ERROR', '新密码不能与当前密码相同')
   return withApiErrorBoundary(event, async () => {
     const user = await prisma.adminUser.findUnique({ where: { id: actor.id }, select: { passwordHash: true, status: true, sessionVersion: true } })
     if (!user || user.status !== 'ENABLED' || !(await verifyPassword(user.passwordHash, input.currentPassword))) {

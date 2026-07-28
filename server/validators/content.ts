@@ -41,7 +41,7 @@ export const bannerSchema = z.object({ title: z.string().trim().min(1).max(255),
 export const articleSchema = z.object({ title: z.string().trim().min(1).max(255), slug: slugSchema, summary: z.string().max(10_000).optional().nullable(), content: richTextSchema, coverImage: relativeUrlSchema, author: z.string().trim().max(100).optional().nullable(), status: contentStatus.default('DRAFT'), isFeatured: z.boolean().default(false), sortOrder: z.coerce.number().int().min(-100000).max(100000).default(0), seoTitle: z.string().trim().max(255).optional().nullable(), seoKeywords: z.string().trim().max(500).optional().nullable(), seoDescription: z.string().max(10_000).optional().nullable(), publishedAt: z.coerce.date().optional().nullable() })
 export const messageSchema = z.object({ status: z.enum(['NEW', 'PROCESSING', 'RESOLVED', 'SPAM']), adminRemark: z.string().max(10_000).optional().nullable() })
 
-const userPasswordSchema = z.string().min(12).max(128)
+const userPasswordSchema = z.string().min(1, '密码不能为空')
 const userBaseSchema = z.object({
   username: z.string().trim().min(3).max(64).regex(/^[a-zA-Z0-9_.-]+$/),
   displayName: z.string().trim().min(1).max(100),

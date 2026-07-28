@@ -7,7 +7,7 @@ import { parseRequestBody } from '../../utils/validation'
 import { writeAudit } from '../../utils/audit'
 import { withApiErrorBoundary } from '../../utils/api-error'
 
-const loginSchema = z.object({ username: z.string().trim().min(1).max(64), password: z.string().min(1).max(128) })
+const loginSchema = z.object({ username: z.string().trim().min(1).max(64), password: z.string().min(1) })
 
 export default defineEventHandler(async (event) => {
   assertSameOrigin(event)

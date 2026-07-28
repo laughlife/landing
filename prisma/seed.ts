@@ -15,9 +15,9 @@ function requireEnv(name: string): string {
 
 async function seedAdmin() {
   const username = requireEnv('ADMIN_INITIAL_USERNAME')
-  const password = requireEnv('ADMIN_INITIAL_PASSWORD')
-  if (password.length < 16) {
-    throw new Error('ADMIN_INITIAL_PASSWORD must contain at least 16 characters.')
+  const password = process.env.ADMIN_INITIAL_PASSWORD
+  if (!password) {
+    throw new Error('ADMIN_INITIAL_PASSWORD is required.')
   }
 
   const existing = await prisma.adminUser.findUnique({ where: { username } })

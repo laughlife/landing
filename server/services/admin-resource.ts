@@ -195,7 +195,7 @@ export async function createResource(event: H3Event, resource: AdminResource, in
   const raw = { ...input }
   const data = cleanPayload(raw)
   if (resource === 'users') {
-    if (typeof raw.password !== 'string' || raw.password.length < 12) fail(event, 400, 'VALIDATION_ERROR', '新管理员密码至少需要 12 位')
+    if (typeof raw.password !== 'string' || !raw.password) fail(event, 400, 'VALIDATION_ERROR', '新管理员密码不能为空')
     data.passwordHash = await hashPassword(raw.password)
   }
   if (resource === 'products' && data.status === 'PUBLISHED') data.publishedAt = new Date()

@@ -19,8 +19,8 @@ async function main() {
   if (!username || !/^[a-zA-Z0-9_.-]{3,64}$/.test(username)) {
     throw new Error('请通过 --username 或 ADMIN_INITIAL_USERNAME 提供合法用户名。')
   }
-  if (!password || password.length < 16) {
-    throw new Error('请通过 ADMIN_INITIAL_PASSWORD 提供至少 16 位强密码。')
+  if (!password) {
+    throw new Error('请通过 ADMIN_INITIAL_PASSWORD 提供非空密码。')
   }
 
   const passwordHash = await new Hash(new Scrypt()).make(password)
