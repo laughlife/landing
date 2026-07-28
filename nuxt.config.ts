@@ -17,7 +17,6 @@ export default defineNuxtConfig({
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL,
     uploadDir: process.env.UPLOAD_DIR || './storage/uploads',
-    maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 10),
     session: {
       maxAge: 60 * 60 * 24 * 7,
       cookie: {

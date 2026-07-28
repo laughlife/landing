@@ -10,14 +10,17 @@ function readArgument(name: string): string | undefined {
 
 async function main() {
   const username = readArgument('username') || process.env.ADMIN_INITIAL_USERNAME
-  const password = readArgument('password') || process.env.ADMIN_INITIAL_PASSWORD
+  if (process.argv.some(argument => argument.startsWith('--password='))) {
+    throw new Error('为避免密码出现在进程列表或命令历史中，请仅使用 ADMIN_INITIAL_PASSWORD。')
+  }
+  const password = process.env.ADMIN_INITIAL_PASSWORD
   const displayName = readArgument('display-name') || '超级管理员'
 
   if (!username || !/^[a-zA-Z0-9_.-]{3,64}$/.test(username)) {
     throw new Error('请通过 --username 或 ADMIN_INITIAL_USERNAME 提供合法用户名。')
   }
   if (!password || password.length < 16) {
-    throw new Error('请通过 --password 或 ADMIN_INITIAL_PASSWORD 提供至少 16 位强密码。')
+    throw new Error('请通过 ADMIN_INITIAL_PASSWORD 提供至少 16 位强密码。')
   }
 
   const passwordHash = await new Hash(new Scrypt()).make(password)

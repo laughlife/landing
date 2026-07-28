@@ -26,10 +26,13 @@ logs
 # Runtime data and generated clients
 storage/uploads/*
 !storage/uploads/.gitkeep
+storage/test-uploads/
 backups/
 server/generated/prisma/
 .playwright-cli/
 output/playwright/
+playwright-report/
+test-results/
 
 #VSC
 .history
