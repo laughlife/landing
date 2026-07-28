@@ -150,6 +150,8 @@ pnpm test:unit
 
 双击项目根目录的 `一键生成发布包.cmd`，程序会自动执行生产构建并在项目根目录生成 `nywysm.zip`。压缩包使用 `nywysm/` 作为顶层目录，包含生产运行文件、数据库迁移、环境变量模板、依赖锁文件和部署说明；不会包含真实 `.env`、Git 数据、测试文件、开发缓存或项目根 `node_modules`。
 
+发布包使用独立的 `.env.release.example` 模板：MySQL 端口为 `8866`，Nuxt/Nitro 监听 `0.0.0.0:4000`。本地开发配置和默认的 `3000` 端口保持不变；正式部署前应把模板中的 `NUXT_PUBLIC_SITE_URL` 换成真实域名或公网访问地址。
+
 默认不会把运行时上传文件放入发布包。确实需要连同当前 `storage/uploads` 一起交付时，在 PowerShell 中显式执行：
 
 ```powershell
@@ -174,7 +176,7 @@ server {
   client_max_body_size 20m;
 
   location / {
-    proxy_pass http://127.0.0.1:3000;
+    proxy_pass http://127.0.0.1:4000;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;

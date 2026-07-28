@@ -124,7 +124,11 @@ try {
   New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
   Copy-ReleaseItem -RelativePath '.output' -Required
   Convert-ReleaseLinksToDirectories -OutputDirectory (Join-Path $packageRoot '.output')
-  Copy-ReleaseItem -RelativePath '.env.example' -Required
+  $releaseEnvSource = Join-Path $projectRoot '.env.release.example'
+  if (-not (Test-Path -LiteralPath $releaseEnvSource -PathType Leaf)) {
+    throw '发布环境配置模板不存在：.env.release.example'
+  }
+  Copy-Item -LiteralPath $releaseEnvSource -Destination (Join-Path $packageRoot '.env.example') -Force
   Copy-ReleaseItem -RelativePath 'package.json' -Required
   Copy-ReleaseItem -RelativePath 'pnpm-lock.yaml' -Required
   Copy-ReleaseItem -RelativePath 'prisma' -Required
