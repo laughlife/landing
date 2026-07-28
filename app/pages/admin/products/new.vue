@@ -21,6 +21,7 @@ const toast = useToast()
 const router = useRouter()
 const submitting = ref(false)
 const categoryError = ref('')
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const form = ref<ProductFormValue>({
   categoryId: undefined,
@@ -47,6 +48,7 @@ const form = ref<ProductFormValue>({
 const { data: categories, pending: categoriesPending, refresh: refreshCategories } = await useAsyncData('admin-product-create-categories', async () => {
   try {
     const response = await $fetch<ApiResponse<Category[] | { items: Category[] }>>('/api/admin/categories', {
+      headers: requestHeaders,
       query: { pageSize: 100, sortBy: 'sortOrder', sortOrder: 'asc' }
     })
     categoryError.value = ''
@@ -176,7 +178,7 @@ async function submit() {
       :categories="categories || []"
       :submitting="submitting"
       submit-label="创建产品"
-      @submit="submit"
+      @save="submit"
       @cancel="navigateTo('/admin/products')"
     />
   </div>

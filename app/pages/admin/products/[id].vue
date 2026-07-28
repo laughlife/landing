@@ -29,6 +29,7 @@ const router = useRouter()
 const toast = useToast()
 const submitting = ref(false)
 const loadError = ref('')
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const emptyForm = (): ProductFormValue => ({
   categoryId: undefined,
@@ -65,8 +66,11 @@ function getErrorMessage(error: unknown) {
 const { data: pageData, pending, refresh } = await useAsyncData(`admin-product-${route.params.id}`, async () => {
   try {
     const [productResponse, categoryResponse] = await Promise.all([
-      $fetch<ApiResponse<ProductData>>(`/api/admin/products/${route.params.id}`),
+      $fetch<ApiResponse<ProductData>>(`/api/admin/products/${route.params.id}`, {
+        headers: requestHeaders
+      }),
       $fetch<ApiResponse<Category[] | { items: Category[] }>>('/api/admin/categories', {
+        headers: requestHeaders,
         query: { pageSize: 100, sortBy: 'sortOrder', sortOrder: 'asc' }
       })
     ])
@@ -88,6 +92,12 @@ watch(pageData, (value) => {
     ...emptyForm(),
     ...product,
     categoryId: Number(product.categoryId ?? product.category?.id ?? 0) || undefined,
+    model: product.model || '',
+    subtitle: product.subtitle || '',
+    summary: product.summary || '',
+    description: product.description || '',
+    coverImage: product.coverImage || '',
+    videoUrl: product.videoUrl || '',
     features: Array.isArray(product.features) ? [...product.features] : [],
     applications: Array.isArray(product.applications) ? [...product.applications] : [],
     specifications: Array.isArray(product.specifications)
@@ -96,6 +106,9 @@ watch(pageData, (value) => {
           items: group.items.map(item => ({ ...item }))
         }))
       : [],
+    seoTitle: product.seoTitle || '',
+    seoKeywords: product.seoKeywords || '',
+    seoDescription: product.seoDescription || '',
     images: Array.isArray(product.images)
       ? product.images.map(image => ({
           mediaId: Number(image.mediaId ?? image.media?.id ?? 0) || undefined,
@@ -228,7 +241,7 @@ async function submit() {
       :categories="pageData.categories"
       :submitting="submitting"
       submit-label="保存修改"
-      @submit="submit"
+      @save="submit"
       @cancel="router.push('/admin/products')"
     />
     <UCard v-else>

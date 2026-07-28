@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { UploadedProductImage } from './ProductImageUpload.vue'
+
 type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'DISABLED'
 
 interface CategoryOption {
@@ -55,7 +57,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: ProductFormValue]
-  'submit': []
+  'save': []
   'cancel': []
 }>()
 
@@ -141,6 +143,18 @@ function addImage() {
   form.value.images.push({ mediaId: undefined, imageUrl: '', altText: '' })
 }
 
+function setCoverImage(image: UploadedProductImage) {
+  form.value.coverImage = image.url
+}
+
+function addUploadedImage(image: UploadedProductImage) {
+  form.value.images.push({
+    mediaId: image.id,
+    imageUrl: image.url,
+    altText: image.originalName.slice(0, 255)
+  })
+}
+
 function removeImage(index: number) {
   form.value.images.splice(index, 1)
 }
@@ -156,7 +170,7 @@ function moveImage(index: number, direction: -1 | 1) {
 <template>
   <form
     class="space-y-6"
-    @submit.prevent="emit('submit')"
+    @submit.prevent="emit('save')"
   >
     <UCard>
       <template #header>
@@ -241,18 +255,29 @@ function moveImage(index: number, direction: -1 | 1) {
             产品媒体
           </h2>
           <p class="mt-1 text-sm text-muted">
-            详情图仅通过媒体 ID 关联；站内地址由服务端读取媒体库记录，不能手工覆盖。
+            可直接上传封面和多张详情图；详情图通过媒体 ID 关联，站内地址由服务端读取媒体库记录。
           </p>
         </div>
       </template>
 
       <div class="grid gap-4 md:grid-cols-2">
-        <UFormField label="封面图 URL">
-          <UInput
-            v-model="form.coverImage"
-            class="w-full"
-            placeholder="/uploads/2026/07/example.webp"
-          />
+        <UFormField
+          label="封面图"
+          hint="支持 JPG、PNG、WebP、GIF，单张不超过 10 MB"
+        >
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <UInput
+              v-model="form.coverImage"
+              class="w-full"
+              placeholder="/uploads/2026/07/example.webp"
+            />
+            <AdminCatalogProductImageUpload
+              label="上传封面图"
+              input-test-id="product-cover-upload"
+              :disabled="submitting"
+              @uploaded="setCoverImage"
+            />
+          </div>
         </UFormField>
         <UFormField label="视频 URL">
           <UInput
@@ -274,19 +299,29 @@ function moveImage(index: number, direction: -1 | 1) {
         >
       </div>
 
-      <div class="mt-5 flex items-center justify-between gap-3">
+      <div class="mt-5 flex flex-wrap items-center justify-between gap-3">
         <h3 class="text-sm font-medium text-highlighted">
           详情图片
         </h3>
-        <UButton
-          type="button"
-          icon="i-lucide-plus"
-          label="添加图片"
-          color="neutral"
-          variant="soft"
-          size="sm"
-          @click="addImage"
-        />
+        <div class="flex flex-wrap gap-2">
+          <AdminCatalogProductImageUpload
+            multiple
+            label="上传详情图片"
+            input-test-id="product-detail-upload"
+            :disabled="submitting"
+            :max-files="Math.max(0, 50 - form.images.length)"
+            @uploaded="addUploadedImage"
+          />
+          <UButton
+            type="button"
+            icon="i-lucide-plus"
+            label="添加媒体 ID"
+            color="neutral"
+            variant="soft"
+            size="sm"
+            @click="addImage"
+          />
+        </div>
       </div>
 
       <div

@@ -1,9 +1,11 @@
 import { access } from 'node:fs/promises'
 import { extname, resolve, sep } from 'node:path'
-import { expect, test, type APIResponse, type Page } from '@playwright/test'
+import { expect, test, type APIResponse, type Page, type Response } from '@playwright/test'
 
 type ApiEnvelope<T> = { success: boolean, data: T, message: string, code?: string }
 type H3ErrorEnvelope = { data?: ApiEnvelope<null> }
+type UploadInputFile = { name: string, mimeType: string, buffer: Buffer }
+type UploadedMedia = { id: number, url: string, originalName: string, mimeType: string }
 
 const baseURL = 'http://127.0.0.1:3101'
 const originHeaders = { Origin: baseURL }
@@ -41,8 +43,30 @@ async function login(page: Page, username: string, password: string) {
   await expect(page).toHaveURL('/admin')
 }
 
+async function uploadThroughInput(page: Page, testId: string, files: UploadInputFile[]) {
+  const responses: Response[] = []
+  const capture = (response: Response) => {
+    if (response.url().endsWith('/api/upload') && response.request().method() === 'POST') {
+      responses.push(response)
+    }
+  }
+  page.on('response', capture)
+  try {
+    await page.getByTestId(testId).setInputFiles(files)
+    await expect.poll(() => responses.length, { timeout: 30_000 }).toBe(files.length)
+    const uploaded: UploadedMedia[] = []
+    for (const response of responses) {
+      expect(response.status()).toBe(200)
+      uploaded.push((await response.json() as ApiEnvelope<UploadedMedia>).data)
+    }
+    return uploaded
+  } finally {
+    page.off('response', capture)
+  }
+}
+
 test('后台权限、产品、上传与角色边界形成闭环', async ({ page }, testInfo) => {
-  test.setTimeout(120_000)
+  test.setTimeout(240_000)
   test.skip(testInfo.project.name !== 'chromium', '后台写入流程只在桌面 Chromium 执行一次')
   const clientErrors: string[] = []
   const consoleErrors: string[] = []
@@ -69,10 +93,18 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
   let editorId: number | undefined
   let productId: number | undefined
   let copiedProductId: number | undefined
-  let mediaId: number | undefined
-  let uploadedUrl: string | undefined
-  let uploadedPath: string | undefined
-  let thumbnailPath: string | undefined
+  const uploadedMedia: Array<UploadedMedia & { filePath: string, thumbnailPath: string }> = []
+  const uploadRoot = resolve('storage/test-uploads')
+
+  function rememberUploadedMedia(media: UploadedMedia) {
+    const filePath = resolve(uploadRoot, media.url.replace(/^\/uploads\//, ''))
+    if (!filePath.startsWith(`${uploadRoot}${sep}`)) throw new Error('Uploaded file escaped the isolated upload directory.')
+    uploadedMedia.push({
+      ...media,
+      filePath,
+      thumbnailPath: filePath.replace(new RegExp(`${extname(filePath)}$`), '-thumb.webp')
+    })
+  }
 
   const anonymousResponse = await page.request.get('/api/admin/dashboard')
   await expectApiError(anonymousResponse, 401, 'UNAUTHORIZED')
@@ -136,43 +168,60 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
     productId = productResponseBody.data.id
 
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
-    const uploadResponse = await page.request.post('/api/upload', {
-      headers: originHeaders,
-      multipart: {
-        file: {
-          name: `qa-${runId}.png`,
-          mimeType: 'image/png',
-          buffer: png
-        }
-      }
-    })
-    expect(uploadResponse.status()).toBe(200)
-    const uploaded = await uploadResponse.json() as ApiEnvelope<{ id: number, url: string, mimeType: string }>
-    mediaId = uploaded.data.id
-    uploadedUrl = uploaded.data.url
-    expect(uploaded.data.mimeType).toBe('image/png')
-    expect(uploaded.data.url).toMatch(/^\/uploads\//)
-    expect((await page.request.get(uploaded.data.url)).status()).toBe(200)
-    const uploadRoot = resolve('storage/test-uploads')
-    uploadedPath = resolve(uploadRoot, uploaded.data.url.replace(/^\/uploads\//, ''))
-    if (!uploadedPath.startsWith(`${uploadRoot}${sep}`)) throw new Error('Uploaded file escaped the isolated upload directory.')
-    thumbnailPath = uploadedPath.replace(new RegExp(`${extname(uploadedPath)}$`), '-thumb.webp')
-    expect(await fileExists(uploadedPath)).toBe(true)
-    expect(await fileExists(thumbnailPath)).toBe(true)
+    const editPageResponse = await page.goto(`/admin/products/${productId}`)
+    expect(editPageResponse?.status()).toBe(200)
+    await page.waitForLoadState('networkidle')
 
-    const productUpdateResponse = await page.request.patch(`/api/admin/products/${productId}`, {
-      headers: originHeaders,
-      data: {
-        categoryId,
-        name: productName,
-        slug: productSlug,
-        status: 'DRAFT',
-        images: [{ mediaId, altText: 'E2E 产品图片' }]
-      }
-    })
-    expect(productUpdateResponse.status()).toBe(200)
+    const coverInput = page.getByTestId('product-cover-upload')
+    await expect(coverInput).toHaveAttribute('aria-label', '上传封面图')
+    expect(await coverInput.evaluate(input => (input as HTMLInputElement).multiple)).toBe(false)
+    const [coverMedia] = await uploadThroughInput(page, 'product-cover-upload', [{
+      name: `qa-cover-${runId}.png`,
+      mimeType: 'image/png',
+      buffer: png
+    }])
+    expect(coverMedia).toBeTruthy()
+    rememberUploadedMedia(coverMedia!)
+    await expect(page.getByAltText('产品封面预览')).toHaveAttribute('src', coverMedia!.url)
+
+    const detailInput = page.getByTestId('product-detail-upload')
+    await expect(detailInput).toHaveAttribute('aria-label', '上传详情图片')
+    expect(await detailInput.evaluate(input => (input as HTMLInputElement).multiple)).toBe(true)
+    const detailMedia = await uploadThroughInput(page, 'product-detail-upload', [
+      { name: `qa-detail-a-${runId}.png`, mimeType: 'image/png', buffer: png },
+      { name: `qa-detail-b-${runId}.png`, mimeType: 'image/png', buffer: png }
+    ])
+    expect(detailMedia).toHaveLength(2)
+    detailMedia.forEach(rememberUploadedMedia)
+    expect(new Set(detailMedia.map(media => media.id)).size).toBe(2)
+    await expect(page.locator('input[placeholder="媒体库 ID"]')).toHaveCount(2)
+
+    const saveResponsePromise = page.waitForResponse(response =>
+      response.url().endsWith(`/api/admin/products/${productId}`)
+      && response.request().method() === 'PATCH'
+    )
+    await page.getByRole('button', { name: '保存修改' }).click()
+    expect((await saveResponsePromise).status()).toBe(200)
+
+    const savedProductResponse = await page.request.get(`/api/admin/products/${productId}`)
+    expect(savedProductResponse.status()).toBe(200)
+    const savedProduct = await savedProductResponse.json() as ApiEnvelope<{
+      coverImage: string
+      images: Array<{ mediaId: number, imageUrl: string }>
+    }>
+    expect(savedProduct.data.coverImage).toBe(coverMedia!.url)
+    expect(savedProduct.data.images.map(image => image.mediaId)).toEqual(detailMedia.map(media => media.id))
+    expect(savedProduct.data.images.map(image => image.imageUrl)).toEqual(detailMedia.map(media => media.url))
+    for (const media of uploadedMedia) {
+      expect(media.mimeType).toBe('image/png')
+      expect(media.url).toMatch(/^\/uploads\//)
+      expect((await page.request.get(media.url)).status()).toBe(200)
+      expect(await fileExists(media.filePath)).toBe(true)
+      expect(await fileExists(media.thumbnailPath)).toBe(true)
+    }
+
     await expectApiError(
-      await page.request.delete(`/api/admin/media/${mediaId}`, { headers: originHeaders }),
+      await page.request.delete(`/api/admin/media/${detailMedia[0]!.id}`, { headers: originHeaders }),
       409,
       'MEDIA_IN_USE'
     )
@@ -208,7 +257,7 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
     const copiedDetailResponse = await page.request.get(`/api/admin/products/${copiedProductId}`)
     expect(copiedDetailResponse.status()).toBe(200)
     const copiedDetail = await copiedDetailResponse.json() as ApiEnvelope<{ images: Array<{ mediaId: number }> }>
-    expect(copiedDetail.data.images.map(image => image.mediaId)).toEqual([mediaId])
+    expect(copiedDetail.data.images.map(image => image.mediaId)).toEqual(detailMedia.map(media => media.id))
 
     expect((await page.request.post('/api/auth/logout', { headers: originHeaders })).status()).toBe(200)
     await login(page, editorUsername, editorPassword)
@@ -228,7 +277,7 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
     expect(new URL(page.url()).searchParams.get('redirect')).toBe('/admin')
   } finally {
     const cleanupFailures: string[] = []
-    if (editorId || productId || copiedProductId || mediaId) {
+    if (editorId || productId || copiedProductId || uploadedMedia.length) {
       await page.request.post('/api/auth/logout', { headers: originHeaders }).catch(() => undefined)
       const cleanupLogin = await page.request.post('/api/auth/login', {
         headers: originHeaders,
@@ -243,12 +292,12 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
         const response = await page.request.delete(`/api/admin/products/${productId}`, { headers: originHeaders })
         if (response.status() !== 200) cleanupFailures.push(`product ${productId} delete returned ${response.status()}`)
       }
-      if (mediaId) {
-        const response = await page.request.delete(`/api/admin/media/${mediaId}`, { headers: originHeaders })
-        if (response.status() !== 200) cleanupFailures.push(`media ${mediaId} delete returned ${response.status()}`)
-        if (uploadedUrl && (await page.request.get(uploadedUrl)).status() !== 404) cleanupFailures.push(`uploaded URL ${uploadedUrl} is still available`)
-        if (uploadedPath && await fileExists(uploadedPath)) cleanupFailures.push(`uploaded file ${uploadedPath} still exists`)
-        if (thumbnailPath && await fileExists(thumbnailPath)) cleanupFailures.push(`thumbnail ${thumbnailPath} still exists`)
+      for (const media of [...uploadedMedia].reverse()) {
+        const response = await page.request.delete(`/api/admin/media/${media.id}`, { headers: originHeaders })
+        if (response.status() !== 200) cleanupFailures.push(`media ${media.id} delete returned ${response.status()}`)
+        if ((await page.request.get(media.url)).status() !== 404) cleanupFailures.push(`uploaded URL ${media.url} is still available`)
+        if (await fileExists(media.filePath)) cleanupFailures.push(`uploaded file ${media.filePath} still exists`)
+        if (await fileExists(media.thumbnailPath)) cleanupFailures.push(`thumbnail ${media.thumbnailPath} still exists`)
       }
       if (editorId) {
         const response = await page.request.delete(`/api/admin/users/${editorId}`, { headers: originHeaders })
