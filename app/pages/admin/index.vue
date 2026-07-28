@@ -80,6 +80,7 @@ useSeoMeta({
 })
 
 const { request, currentUser } = useAdminApi()
+const isSuperAdmin = computed(() => currentUser.value?.role === 'SUPER_ADMIN')
 const {
   data: dashboardData,
   status,
@@ -330,7 +331,10 @@ function formatDate(value: string) {
           />
         </UCard>
 
-        <UCard :ui="{ body: 'p-0', header: 'flex items-center justify-between' }">
+        <UCard
+          v-if="isSuperAdmin"
+          :ui="{ body: 'p-0', header: 'flex items-center justify-between' }"
+        >
           <template #header>
             <div>
               <h2 class="font-semibold text-highlighted">
@@ -386,7 +390,7 @@ function formatDate(value: string) {
         </UCard>
       </section>
 
-      <section>
+      <section v-if="isSuperAdmin">
         <UCard :ui="{ body: 'p-0' }">
           <template #header>
             <div>

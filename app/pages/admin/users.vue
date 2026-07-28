@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: ['admin', 'admin-super'] })
 useHead({ title: '管理员管理 - 管理后台', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 type Role = 'SUPER_ADMIN' | 'EDITOR'

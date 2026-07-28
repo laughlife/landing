@@ -5,7 +5,9 @@ defineProps<{
   collapsed?: boolean
 }>()
 
-const navigationItems: NavigationMenuItem[][] = [
+const { currentUser } = useAdminApi()
+
+const contentNavigation: NavigationMenuItem[][] = [
   [{
     label: '控制台',
     icon: 'i-lucide-layout-dashboard',
@@ -63,20 +65,25 @@ const navigationItems: NavigationMenuItem[][] = [
     label: '网站设置',
     icon: 'i-lucide-settings-2',
     to: '/admin/settings'
-  }],
-  [{
-    label: '系统管理',
-    type: 'label'
-  }, {
-    label: '管理员管理',
-    icon: 'i-lucide-shield-check',
-    to: '/admin/users'
-  }, {
-    label: '操作日志',
-    icon: 'i-lucide-scroll-text',
-    to: '/admin/audit-logs'
   }]
 ]
+
+const systemNavigation: NavigationMenuItem[] = [{
+  label: '系统管理',
+  type: 'label'
+}, {
+  label: '管理员管理',
+  icon: 'i-lucide-shield-check',
+  to: '/admin/users'
+}, {
+  label: '操作日志',
+  icon: 'i-lucide-scroll-text',
+  to: '/admin/audit-logs'
+}]
+
+const navigationItems = computed<NavigationMenuItem[][]>(() => currentUser.value?.role === 'SUPER_ADMIN'
+  ? [...contentNavigation, systemNavigation]
+  : contentNavigation)
 </script>
 
 <template>

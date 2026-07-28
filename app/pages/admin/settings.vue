@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: '网站设置 - 管理后台', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 type SocialLink = { name: string, url: string }

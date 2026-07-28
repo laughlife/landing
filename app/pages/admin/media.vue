@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: '媒体库 - 管理后台', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 type MediaItem = {

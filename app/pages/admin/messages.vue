@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: '咨询留言 - 管理后台', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 type MessageStatus = 'NEW' | 'PROCESSING' | 'RESOLVED' | 'SPAM'
@@ -42,6 +42,8 @@ const statusOptions = [
 ]
 const statusLabel: Record<MessageStatus, string> = { NEW: '新留言', PROCESSING: '处理中', RESOLVED: '已解决', SPAM: '垃圾信息' }
 const statusColor: Record<MessageStatus, 'info' | 'warning' | 'success' | 'neutral'> = { NEW: 'info', PROCESSING: 'warning', RESOLVED: 'success', SPAM: 'neutral' }
+const { currentUser } = useAdminApi()
+const isSuperAdmin = computed(() => currentUser.value?.role === 'SUPER_ADMIN')
 
 function openDetail(item: MessageItem) {
   selected.value = item
@@ -250,6 +252,7 @@ onMounted(load)
                       label="查看"
                       @click="openDetail(item)"
                     /><UButton
+                      v-if="isSuperAdmin"
                       size="xs"
                       color="error"
                       variant="ghost"
@@ -356,6 +359,7 @@ onMounted(load)
           </UFormField>
           <div class="flex justify-between gap-3">
             <UButton
+              v-if="isSuperAdmin"
               color="error"
               variant="ghost"
               icon="i-lucide-trash-2"
@@ -372,6 +376,7 @@ onMounted(load)
       </aside>
     </div>
     <AdminOperationsConfirmDialog
+      v-if="isSuperAdmin"
       :open="Boolean(pendingDelete)"
       title="删除咨询留言？"
       :description="`此操作将永久删除“${pendingDelete?.subject || pendingDelete?.name || ''}”的留言记录，且仅超级管理员可以执行。`"

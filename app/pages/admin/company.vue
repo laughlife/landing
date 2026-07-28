@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: '公司信息 - 管理后台', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 type CompanyForm = {
