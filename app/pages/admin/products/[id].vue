@@ -142,12 +142,13 @@ async function submit() {
       features: form.value.features.map(item => item.trim()).filter(Boolean),
       applications: form.value.applications.map(item => item.trim()).filter(Boolean),
       specifications: form.value.specifications,
+      images: form.value.images.map(image => ({
+        mediaId: Number(image.mediaId),
+        altText: cleanOptional(image.altText)
+      })),
       seoTitle: cleanOptional(form.value.seoTitle),
       seoKeywords: cleanOptional(form.value.seoKeywords),
       seoDescription: cleanOptional(form.value.seoDescription)
-    }
-    if (pageData.value?.product.images !== undefined || form.value.images.length) {
-      payload.imageIds = form.value.images.map(image => Number(image.mediaId))
     }
     const response = await $fetch<ApiResponse<ProductData>>(`/api/admin/products/${route.params.id}`, {
       method: 'PATCH',

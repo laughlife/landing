@@ -241,7 +241,7 @@ function moveImage(index: number, direction: -1 | 1) {
             产品媒体
           </h2>
           <p class="mt-1 text-sm text-muted">
-            使用媒体库返回的站内 URL；详情图同时保留媒体 ID 以便后端建立引用。
+            详情图仅通过媒体 ID 关联；站内地址由服务端读取媒体库记录，不能手工覆盖。
           </p>
         </div>
       </template>
@@ -296,7 +296,7 @@ function moveImage(index: number, direction: -1 | 1) {
         <div
           v-for="(image, index) in form.images"
           :key="index"
-          class="grid gap-3 rounded-xl border border-default p-3 md:grid-cols-[7rem_1fr_1fr_auto]"
+          class="grid gap-3 rounded-xl border border-default p-3 md:grid-cols-[7rem_9rem_1fr_auto]"
         >
           <div class="flex h-20 items-center justify-center overflow-hidden rounded-lg bg-muted/40">
             <img
@@ -320,22 +320,21 @@ function moveImage(index: number, direction: -1 | 1) {
               placeholder="媒体库 ID"
             />
           </UFormField>
-          <div class="grid gap-3 sm:grid-cols-2 md:grid-cols-1">
-            <UFormField label="图片 URL">
-              <UInput
-                v-model="image.imageUrl"
-                class="w-full"
-                placeholder="/uploads/..."
-              />
-            </UFormField>
-            <UFormField label="替代文本">
-              <UInput
-                v-model="image.altText"
-                class="w-full"
-                placeholder="图片内容描述"
-              />
-            </UFormField>
-          </div>
+          <UFormField label="替代文本">
+            <UInput
+              v-model="image.altText"
+              class="w-full"
+              maxlength="255"
+              placeholder="图片内容描述"
+            />
+            <template #hint>
+              <span
+                v-if="image.imageUrl"
+                class="line-clamp-1 break-all"
+              >{{ image.imageUrl }}</span>
+              <span v-else>保存后从媒体库读取站内地址</span>
+            </template>
+          </UFormField>
           <div class="flex items-center gap-1 md:flex-col">
             <UButton
               type="button"
