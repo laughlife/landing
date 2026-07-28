@@ -1,7 +1,7 @@
-import { requireAdminSession } from '../../../../utils/auth'
-import { prisma } from '../../../../utils/db'
-import { notFound, success } from '../../../../utils/response'
-import { findMediaUsages } from '../../../../services/media-reference'
+import { requireAdminSession } from '../../../utils/auth'
+import { prisma } from '../../../utils/db'
+import { notFound, success } from '../../../utils/response'
+import { findMediaUsages } from '../../../services/media-reference'
 
 export default defineEventHandler(async (event) => {
   await requireAdminSession(event)

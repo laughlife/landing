@@ -103,7 +103,7 @@ async function upload(event: Event) {
 }
 
 async function loadReferences(target: MediaItem) {
-  const response = await $fetch<ApiResponse<MediaReferencesData>>(`/api/admin/media/${target.id}/references`)
+  const response = await $fetch<ApiResponse<MediaReferencesData>>(`/api/admin/media-references/${target.id}`)
   references.value = response.data.references
   target.referenceCount = response.data.total
 }
