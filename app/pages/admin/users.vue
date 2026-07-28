@@ -75,7 +75,7 @@ function requestSave() {
     error.value = '用户名和显示名称不能为空'
     return
   }
-  if (!editing.value && form.value.password.length < 12) {
+  if ((!editing.value || form.value.password) && form.value.password.length < 12) {
     error.value = '新管理员密码至少需要 12 位'
     return
   }
@@ -89,11 +89,15 @@ async function save() {
   error.value = ''
   confirmMode.value = null
   try {
+    const password = form.value.password
     const body = {
-      ...form.value,
+      username: form.value.username,
+      displayName: form.value.displayName,
       email: form.value.email.trim() || null,
       avatar: form.value.avatar.trim() || null,
-      password: form.value.password || undefined
+      role: form.value.role,
+      status: form.value.status,
+      ...(password ? { password } : {})
     }
     const endpoint = editing.value ? `/api/admin/users/${editing.value.id}` : '/api/admin/users'
     const response = await $fetch<ApiResponse<UserItem>>(endpoint, { method: editing.value ? 'PATCH' : 'POST', body })
@@ -399,7 +403,7 @@ onMounted(load)
           </UFormField><UFormField
             :label="editing ? '重置密码（选填）' : '初始密码'"
             :hint="editing ? '留空则不修改' : '至少 12 位'"
-            required
+            :required="!editing"
           >
             <UInput
               v-model="form.password"
