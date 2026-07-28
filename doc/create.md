@@ -113,11 +113,6 @@
 ├── storage/
 │   └── uploads/               运行时本地上传文件
 │
-├── scripts/
-│   ├── backup-local.ps1
-│   ├── restore-local.ps1
-│   └── create-admin.ts
-│
 ├── public/                    只放随源码发布的静态文件
 ├── .env                       本地敏感配置，不提交
 ├── .env.example               无真实密码的配置模板
@@ -1551,33 +1546,7 @@ Seed 内容包括：
 
 # 十五、备份和恢复
 
-创建适用于 Windows PowerShell 的本地脚本：
-
-```text
-scripts/backup-local.ps1
-scripts/restore-local.ps1
-```
-
-备份内容：
-
-* MySQL 数据库
-* `storage/uploads`
-* 当前备份时间
-* 基础清单文件
-
-输出目录：
-
-```text
-backups/YYYY-MM-DD_HH-mm-ss/
-```
-
-要求：
-
-* 脚本从 `.env` 或安全参数读取配置。
-* 不在脚本源码中硬编码数据库密码。
-* 恢复脚本必须要求明确确认。
-* 恢复前自动创建一次当前数据备份。
-* README 写明执行方法。
+项目不再维护仓库内置的备份与恢复脚本。生产环境的 MySQL 和 `storage/uploads` 由部署平台或独立运维流程统一备份、校验和恢复。
 
 ---
 
@@ -1598,7 +1567,6 @@ backups/YYYY-MM-DD_HH-mm-ss/
     "db:deploy": "执行生产迁移",
     "db:seed": "初始化数据",
     "db:studio": "打开 Prisma Studio",
-    "admin:create": "创建管理员",
     "check": "依次执行 lint、typecheck 和 build"
   }
 }

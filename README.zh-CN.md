@@ -26,7 +26,6 @@ app/                 前台与后台页面、组件、布局和组合函数
 server/              API、服务、仓储、鉴权、验证与文件处理
 prisma/              Prisma Schema、迁移和 Seed
 storage/uploads/     运行时上传文件，不提交到 Git
-scripts/             Windows 本地备份、恢复和管理员维护脚本
 tests/               单元、集成和端到端测试
 public/              随源码发布的静态资源
 ```
@@ -36,7 +35,7 @@ public/              随源码发布的静态资源
 - Node.js 24.0 或更高版本（当前项目使用 Node 24）。
 - pnpm 11.17 或更高版本；请勿混用 npm 或 yarn。
 - MySQL 8.0+ 或兼容的 MariaDB，字符集使用 `utf8mb4`。
-- Windows PowerShell 7+；备份/恢复需要与数据库版本兼容的 `mysqldump`、`mysql`。
+- Windows PowerShell 7+。
 - 运行浏览器端到端测试时需要 Chromium。
 
 ## 6. 安装依赖
@@ -117,47 +116,19 @@ pnpm dev
 
 初始管理员仅由本机 `.env` 中的 `ADMIN_INITIAL_USERNAME` 与 `ADMIN_INITIAL_PASSWORD` 初始化；不要把它们写入文档、截图、Issue 或 Git 提交。
 
-## 12. 创建或重置管理员
+## 12. 管理员维护
 
-在服务器终端中执行：
-
-```powershell
-pnpm admin:create
-```
-
-该命令只从 `ADMIN_INITIAL_PASSWORD` 环境变量读取密码，并拒绝 `--password` 参数，避免密码出现在进程列表、命令历史、日志或浏览器端。重置管理员前，请确认当前会话、角色和审计日志不会被误影响。
+首次部署通过 `pnpm db:seed` 创建初始管理员。后续管理员账号、角色和密码统一在管理后台维护，不再提供独立命令行维护脚本。
 
 ## 13. 文件存储说明
 
-运行时上传文件保存于 `storage/uploads/YYYY/MM/DD/`，不会写入 `public/`。数据库仅保存受控的相对 URL 与媒体元数据；文件路由必须验证规范化后的目标仍位于上传根目录。上传目录、备份目录和 `.env` 都不应提交到 Git。
+运行时上传文件保存于 `storage/uploads/YYYY/MM/DD/`，不会写入 `public/`。数据库仅保存受控的相对 URL 与媒体元数据；文件路由必须验证规范化后的目标仍位于上传根目录。上传目录和 `.env` 都不应提交到 Git。
 
-## 14. 数据备份
+## 14. 数据备份与恢复
 
-备份脚本会读取 `.env` 中的 `DATABASE_URL`，备份数据库、`storage/uploads` 和不含密钥的清单到 `backups/YYYY-MM-DD_HH-mm-ss-fff/`。执行前应停止应用写入或进入维护窗口，使数据库记录与上传文件处于同一业务快照。
+项目不再内置数据库和上传文件的备份、恢复脚本。生产环境请使用数据库平台、主机快照或经过审核的运维系统统一备份 MySQL 与 `storage/uploads`，并在恢复前确认应用版本、数据库迁移版本和上传文件快照一致。
 
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\backup-local.ps1
-```
-
-可通过 `-OutputRoot` 指定其他备份根目录：
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\backup-local.ps1 -OutputRoot D:\secure-backups
-```
-
-脚本使用临时 MySQL 选项文件传递凭证，不会把数据库密码打印到控制台或写入清单。请将生成的备份目录保存到受访问控制的位置。
-
-## 15. 数据恢复
-
-恢复会先自动备份当前状态，然后要求在交互提示中准确输入 `RESTORE`。恢复仅清理并恢复 `portal_` 前缀表，绝不会触碰同一数据库的非本项目表。已有 `portal_` 表时，恢复数据要求当前迁移结构与备份兼容；空数据库才会导入结构文件。
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore-local.ps1 -BackupPath .\backups\2026-01-01_12-00-00 -ConfirmRestore
-```
-
-不要在不确定备份来源、应用版本或目标数据库时执行恢复；哈希只能检测意外损坏，不能证明备份来源可信。恢复前应停止应用，且脚本会自动生成安全备份并显示路径。
-
-## 16. 生产构建
+## 15. 生产构建
 
 ```powershell
 pnpm lint
@@ -173,20 +144,13 @@ pnpm preview
 
 ```powershell
 pnpm test:unit
-pnpm db:test:deploy
-pnpm db:test:seed
-pnpm test:integration
-pnpm test:e2e
 ```
-
-`test:integration` 与 `test:e2e` 会先在受保护的 `wysm_test` 上执行迁移和幂等 Seed，再运行测试。端到端测试固定在 `127.0.0.1:3101` 启动独立 Nuxt 服务，`reuseExistingServer` 已禁用，并使用本机已安装的 Google Chrome。
 
 ## 17. Windows 部署注意事项
 
 - 使用受支持的 Node.js LTS/当前项目锁定版本和 pnpm；服务账户必须能读取 `.env`、写入上传目录。
 - 通过任务计划程序、Windows Service 或受控进程管理器运行 `node .output/server/index.mjs`，不要以管理员账户长期运行。
 - 配置防火墙仅开放反向代理所需端口；MySQL 不应直接暴露到公网。
-- `mysqldump` 与 `mysql` 必须在 `PATH` 中，或在执行备份脚本前设置 `MYSQL_BIN` 为可执行文件目录。
 
 ## 18. Nginx 反向代理示例
 
