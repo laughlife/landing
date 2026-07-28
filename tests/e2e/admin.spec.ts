@@ -42,8 +42,20 @@ async function login(page: Page, username: string, password: string) {
 }
 
 test('后台权限、产品、上传与角色边界形成闭环', async ({ page }, testInfo) => {
-  test.setTimeout(90_000)
+  test.setTimeout(120_000)
   test.skip(testInfo.project.name !== 'chromium', '后台写入流程只在桌面 Chromium 执行一次')
+  const clientErrors: string[] = []
+  const consoleErrors: string[] = []
+  const failedResponses: string[] = []
+  page.on('pageerror', (error) => {
+    clientErrors.push(error.message)
+  })
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text())
+  })
+  page.on('response', (response) => {
+    if (response.status() >= 400) failedResponses.push(`${response.status()} ${response.url()}`)
+  })
 
   const superUsername = process.env.ADMIN_INITIAL_USERNAME
   const superPassword = process.env.ADMIN_INITIAL_PASSWORD
@@ -56,6 +68,7 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
   const productName = `E2E 测试产品 ${runId}`
   let editorId: number | undefined
   let productId: number | undefined
+  let copiedProductId: number | undefined
   let mediaId: number | undefined
   let uploadedUrl: string | undefined
   let uploadedPath: string | undefined
@@ -118,8 +131,9 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
         images: []
       }
     })
-    expect(productResponse.status()).toBe(200)
-    productId = (await productResponse.json() as ApiEnvelope<{ id: number }>).data.id
+    const productResponseBody = await productResponse.json() as ApiEnvelope<{ id: number }>
+    expect(productResponse.status(), JSON.stringify(productResponseBody)).toBe(200)
+    productId = productResponseBody.data.id
 
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
     const uploadResponse = await page.request.post('/api/upload', {
@@ -163,6 +177,39 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
       'MEDIA_IN_USE'
     )
 
+    failedResponses.length = 0
+    const productsPageResponse = await page.goto('/admin/products')
+    expect(productsPageResponse?.status()).toBe(200)
+    await page.waitForLoadState('networkidle')
+    expect(clientErrors).toEqual([])
+    const sourceRow = page.getByRole('row').filter({ hasText: productName })
+    await expect(sourceRow).toBeVisible().catch(() => {
+      throw new Error(`产品列表未渲染。pageErrors=${JSON.stringify(clientErrors)} consoleErrors=${JSON.stringify(consoleErrors)} failedResponses=${JSON.stringify(failedResponses)}`)
+    })
+    const copyResponsePromise = page.waitForResponse(response =>
+      response.url().endsWith(`/api/admin/product-actions/${productId}/copy`)
+      && response.request().method() === 'POST'
+    )
+    await sourceRow.getByRole('button', { name: '复制产品' }).click()
+    const copyResponse = await copyResponsePromise
+    expect(copyResponse.status()).toBe(200)
+    const copiedProduct = await copyResponse.json() as ApiEnvelope<{
+      id: number
+      slug: string
+      status: string
+      viewCount: number
+      isFeatured: boolean
+    }>
+    copiedProductId = copiedProduct.data.id
+    expect(copiedProduct.data).toMatchObject({ status: 'DRAFT', viewCount: 0, isFeatured: false })
+    expect(copiedProduct.data.slug).not.toBe(productSlug)
+    await expect(page).toHaveURL(`/admin/products/${copiedProductId}`)
+
+    const copiedDetailResponse = await page.request.get(`/api/admin/products/${copiedProductId}`)
+    expect(copiedDetailResponse.status()).toBe(200)
+    const copiedDetail = await copiedDetailResponse.json() as ApiEnvelope<{ images: Array<{ mediaId: number }> }>
+    expect(copiedDetail.data.images.map(image => image.mediaId)).toEqual([mediaId])
+
     expect((await page.request.post('/api/auth/logout', { headers: originHeaders })).status()).toBe(200)
     await login(page, editorUsername, editorPassword)
     await expect(page.getByRole('link', { name: '管理员管理' })).toHaveCount(0)
@@ -181,7 +228,7 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
     expect(new URL(page.url()).searchParams.get('redirect')).toBe('/admin')
   } finally {
     const cleanupFailures: string[] = []
-    if (editorId || productId || mediaId) {
+    if (editorId || productId || copiedProductId || mediaId) {
       await page.request.post('/api/auth/logout', { headers: originHeaders }).catch(() => undefined)
       const cleanupLogin = await page.request.post('/api/auth/login', {
         headers: originHeaders,
@@ -189,6 +236,10 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
       })
       if (cleanupLogin.status() !== 200) cleanupFailures.push(`cleanup login returned ${cleanupLogin.status()}`)
       if (productId) {
+        if (copiedProductId) {
+          const response = await page.request.delete(`/api/admin/products/${copiedProductId}`, { headers: originHeaders })
+          if (response.status() !== 200) cleanupFailures.push(`copied product ${copiedProductId} delete returned ${response.status()}`)
+        }
         const response = await page.request.delete(`/api/admin/products/${productId}`, { headers: originHeaders })
         if (response.status() !== 200) cleanupFailures.push(`product ${productId} delete returned ${response.status()}`)
       }

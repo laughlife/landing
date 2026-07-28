@@ -48,28 +48,30 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 useSeoMeta({ title: '产品列表 - 后台管理', robots: 'noindex, nofollow' })
 
 const toast = useToast()
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 const page = ref(1)
 const pageSize = ref(20)
 const keywordInput = ref('')
 const keyword = ref('')
-const status = ref('')
+const status = ref('ALL')
 const categoryId = ref(0)
-const featured = ref('')
+const featured = ref('ALL')
 const sortBy = ref('updatedAt')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const loadError = ref('')
 const deleting = ref(false)
+const duplicatingId = ref<number | string | null>(null)
 const deleteTarget = ref<ProductListItem | null>(null)
 const deleteOpen = ref(false)
 
 const statusItems = [
-  { label: '全部状态', value: '' },
+  { label: '全部状态', value: 'ALL' },
   { label: '草稿', value: 'DRAFT' },
   { label: '已发布', value: 'PUBLISHED' },
   { label: '已停用', value: 'DISABLED' }
 ]
 const featuredItems = [
-  { label: '全部推荐状态', value: '' },
+  { label: '全部推荐状态', value: 'ALL' },
   { label: '仅推荐', value: 'true' },
   { label: '仅未推荐', value: 'false' }
 ]
@@ -91,6 +93,7 @@ function getErrorMessage(error: unknown) {
 const { data: categories } = await useAsyncData('admin-product-list-categories', async () => {
   try {
     const response = await $fetch<ApiResponse<Category[] | { items: Category[] }>>('/api/admin/categories', {
+      headers: requestHeaders,
       query: { pageSize: 100, sortBy: 'sortOrder', sortOrder: 'asc' }
     })
     return Array.isArray(response.data) ? response.data : response.data.items
@@ -115,9 +118,9 @@ const query = computed(() => ({
   page: page.value,
   pageSize: pageSize.value,
   keyword: keyword.value || undefined,
-  status: status.value || undefined,
+  status: status.value === 'ALL' ? undefined : status.value,
   categoryId: categoryId.value || undefined,
-  isFeatured: featured.value || undefined,
+  isFeatured: featured.value === 'ALL' ? undefined : featured.value,
   sortBy: sortBy.value,
   sortOrder: sortOrder.value
 }))
@@ -125,6 +128,7 @@ const query = computed(() => ({
 const { data: result, pending, refresh } = await useAsyncData('admin-products', async () => {
   try {
     const response = await $fetch<ApiResponse<AdminPage<ProductListItem>>>('/api/admin/products', {
+      headers: requestHeaders,
       query: query.value
     })
     loadError.value = ''
@@ -166,9 +170,9 @@ function search() {
 function resetFilters() {
   keywordInput.value = ''
   keyword.value = ''
-  status.value = ''
+  status.value = 'ALL'
   categoryId.value = 0
-  featured.value = ''
+  featured.value = 'ALL'
   sortBy.value = 'updatedAt'
   sortOrder.value = 'desc'
   page.value = 1
@@ -177,6 +181,20 @@ function resetFilters() {
 function askDelete(product: ProductListItem) {
   deleteTarget.value = product
   deleteOpen.value = true
+}
+
+async function duplicateProduct(product: ProductListItem) {
+  if (duplicatingId.value !== null) return
+  duplicatingId.value = product.id
+  try {
+    const response = await $fetch<ApiResponse<{ id: number }>>(`/api/admin/product-actions/${product.id}/copy`, { method: 'POST' })
+    toast.add({ title: '产品复制成功', description: response.message, color: 'success' })
+    await navigateTo(`/admin/products/${response.data.id}`)
+  } catch (error) {
+    toast.add({ title: '复制失败', description: getErrorMessage(error), color: 'error' })
+  } finally {
+    duplicatingId.value = null
+  }
 }
 
 async function confirmDelete() {
@@ -403,6 +421,15 @@ function formatDate(value?: string) {
                     aria-label="编辑产品"
                     color="neutral"
                     variant="ghost"
+                  />
+                  <UButton
+                    icon="i-lucide-copy"
+                    aria-label="复制产品"
+                    color="neutral"
+                    variant="ghost"
+                    :loading="duplicatingId === product.id"
+                    :disabled="duplicatingId !== null && duplicatingId !== product.id"
+                    @click="duplicateProduct(product)"
                   />
                   <UButton
                     v-if="product.status === 'PUBLISHED'"

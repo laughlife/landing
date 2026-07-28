@@ -246,6 +246,89 @@ export async function updateResource(event: H3Event, resource: AdminResource, id
   return updated
 }
 
+export async function copyProduct(event: H3Event, id: number, actor: AdminSession) {
+  let copied: Awaited<ReturnType<typeof prisma.product.create>> | undefined
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      copied = await prisma.$transaction(async (transaction) => {
+        const source = await transaction.product.findUnique({
+          where: { id },
+          include: {
+            images: {
+              orderBy: { sortOrder: 'asc' },
+              select: { mediaId: true, imageUrl: true, altText: true, sortOrder: true }
+            }
+          }
+        })
+        if (!source) return notFound(event, '产品不存在')
+
+        let slug = ''
+        for (let index = 1; index <= 100; index += 1) {
+          const suffix = index === 1 ? '-copy' : `-copy-${index}`
+          const candidate = `${source.slug.slice(0, 191 - suffix.length)}${suffix}`
+          const exists = await transaction.product.findUnique({ where: { slug: candidate }, select: { id: true } })
+          if (!exists) {
+            slug = candidate
+            break
+          }
+        }
+        if (!slug) return fail(event, 409, 'CONFLICT', '复制产品过多，请先调整已有副本的 URL 标识')
+
+        const nameSuffix = '（副本）'
+        const created = await transaction.product.create({
+          data: {
+            categoryId: source.categoryId,
+            name: `${source.name.slice(0, 200 - nameSuffix.length)}${nameSuffix}`,
+            slug,
+            model: source.model,
+            subtitle: source.subtitle,
+            summary: source.summary,
+            description: source.description,
+            coverImage: source.coverImage,
+            videoUrl: source.videoUrl,
+            features: source.features ?? undefined,
+            applications: source.applications ?? undefined,
+            specifications: source.specifications ?? undefined,
+            sortOrder: source.sortOrder,
+            isFeatured: false,
+            status: 'DRAFT',
+            viewCount: 0,
+            seoTitle: source.seoTitle,
+            seoKeywords: source.seoKeywords,
+            seoDescription: source.seoDescription,
+            publishedAt: null,
+            images: {
+              create: source.images.map(image => ({
+                mediaId: image.mediaId,
+                imageUrl: image.imageUrl,
+                altText: image.altText,
+                sortOrder: image.sortOrder
+              }))
+            }
+          }
+        })
+        await writeAudit(event, {
+          adminUserId: actor.id,
+          module: 'products',
+          action: 'CREATE',
+          targetType: 'products',
+          targetId: created.id,
+          summary: `复制产品 ${source.name}`
+        }, transaction)
+        return created
+      })
+      break
+    } catch (error) {
+      if ((error as { code?: unknown }).code !== 'P2002' || attempt === 3) throw error
+    }
+  }
+  if (!copied) {
+    return fail(event, 409, 'CONFLICT', '复制产品失败，请稍后重试')
+  }
+  invalidateCache(...resourceMeta.products.cache)
+  return copied
+}
+
 export async function deleteResource(event: H3Event, resource: AdminResource, id: number, actor: AdminSession) {
   const existing = await getResource(event, resource, id) as { role?: string, id: number, relativePath?: string, storedName?: string, url?: string }
   if (resource === 'users') {
