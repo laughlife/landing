@@ -441,11 +441,10 @@ onMounted(load)
               type="email"
               class="w-full"
             />
-          </UFormField><UFormField label="头像路径">
-            <UInput
+          </UFormField><UFormField label="管理员头像">
+            <AdminMediaPicker
               v-model="form.avatar"
-              class="w-full"
-              placeholder="/uploads/..."
+              button-label="选择管理员头像"
             />
           </UFormField><UFormField label="角色">
             <USelect

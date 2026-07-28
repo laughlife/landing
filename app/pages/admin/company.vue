@@ -171,21 +171,16 @@ onMounted(load)
                 maxlength="255"
               />
             </UFormField>
-            <UFormField
-              label="Logo 路径"
-              hint="使用 /uploads/... 站内路径"
-            >
-              <UInput
+            <UFormField label="公司 Logo">
+              <AdminMediaPicker
                 v-model="form.logo"
-                class="w-full"
-                placeholder="/uploads/..."
+                button-label="选择公司 Logo"
               />
             </UFormField>
-            <UFormField label="Favicon 路径">
-              <UInput
+            <UFormField label="网站 Favicon">
+              <AdminMediaPicker
                 v-model="form.favicon"
-                class="w-full"
-                placeholder="/uploads/..."
+                button-label="选择 Favicon"
               />
             </UFormField>
             <UFormField

@@ -259,11 +259,10 @@ onMounted(() => void loadArticle())
                 placeholder="用于列表页和分享描述"
               />
             </UFormField>
-            <UFormField label="封面图地址">
-              <UInput
+            <UFormField label="文章封面图">
+              <AdminMediaPicker
                 v-model="form.coverImage"
-                class="w-full"
-                placeholder="/uploads/..."
+                button-label="选择文章封面"
               />
             </UFormField>
           </div>

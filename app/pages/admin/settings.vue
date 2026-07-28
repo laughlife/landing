@@ -162,29 +162,26 @@ onMounted(load)
                 placeholder="https://example.com"
               />
             </UFormField>
-            <UFormField label="Logo 路径">
-              <UInput
+            <UFormField label="网站 Logo">
+              <AdminMediaPicker
                 v-model="form.logo"
-                class="w-full"
-                placeholder="/uploads/..."
+                button-label="选择网站 Logo"
               />
             </UFormField>
-            <UFormField label="Favicon 路径">
-              <UInput
+            <UFormField label="网站 Favicon">
+              <AdminMediaPicker
                 v-model="form.favicon"
-                class="w-full"
-                placeholder="/uploads/..."
+                button-label="选择 Favicon"
               />
             </UFormField>
             <UFormField
-              label="缺图默认图片路径"
-              hint="先在媒体库上传图片，再将复制的 URL 粘贴到这里"
+              label="缺图默认图片"
+              hint="当前台图片不存在或加载失败时显示"
               class="md:col-span-2"
             >
-              <UInput
+              <AdminMediaPicker
                 v-model="form.fallbackImage"
-                class="w-full"
-                placeholder="/uploads/..."
+                button-label="选择缺图默认图片"
               />
             </UFormField>
           </div>

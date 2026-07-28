@@ -476,13 +476,12 @@ function productCount(category: Category) {
               />
             </UFormField>
             <UFormField
-              label="封面图 URL"
+              label="分类封面图"
               class="sm:col-span-2"
             >
-              <UInput
+              <AdminMediaPicker
                 v-model="form.coverImage"
-                class="w-full"
-                placeholder="/uploads/..."
+                button-label="选择分类封面"
               />
             </UFormField>
             <UFormField
