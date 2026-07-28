@@ -75,8 +75,8 @@ function requestSave() {
     error.value = '用户名和显示名称不能为空'
     return
   }
-  if ((!editing.value || form.value.password) && form.value.password.length < 12) {
-    error.value = '新管理员密码至少需要 12 位'
+  if (!editing.value && !form.value.password) {
+    error.value = '新管理员密码不能为空'
     return
   }
   const criticalChange = editing.value && (editing.value.role !== form.value.role || editing.value.status !== form.value.status)
@@ -128,8 +128,12 @@ async function remove() {
 }
 
 async function changeOwnPassword() {
-  if (ownPassword.value.newPassword.length < 12 || ownPassword.value.newPassword !== ownPassword.value.confirmPassword) {
-    error.value = '新密码至少 12 位，且两次输入必须一致'
+  if (!ownPassword.value.currentPassword || !ownPassword.value.newPassword || !ownPassword.value.confirmPassword) {
+    error.value = '请完整填写当前密码、新密码和确认密码'
+    return
+  }
+  if (ownPassword.value.newPassword !== ownPassword.value.confirmPassword) {
+    error.value = '两次输入的新密码不一致'
     return
   }
   changingPassword.value = true
@@ -337,7 +341,10 @@ onMounted(load)
         </div>
       </template>
       <div class="grid gap-4 lg:grid-cols-3">
-        <UFormField label="当前密码">
+        <UFormField
+          label="当前密码"
+          required
+        >
           <UInput
             v-model="ownPassword.currentPassword"
             type="password"
@@ -345,14 +352,18 @@ onMounted(load)
           />
         </UFormField><UFormField
           label="新密码"
-          hint="至少 12 位"
+          hint="不能为空"
+          required
         >
           <UInput
             v-model="ownPassword.newPassword"
             type="password"
             class="w-full"
           />
-        </UFormField><UFormField label="确认新密码">
+        </UFormField><UFormField
+          label="确认新密码"
+          required
+        >
           <UInput
             v-model="ownPassword.confirmPassword"
             type="password"
@@ -402,7 +413,7 @@ onMounted(load)
             />
           </UFormField><UFormField
             :label="editing ? '重置密码（选填）' : '初始密码'"
-            :hint="editing ? '留空则不修改' : '至少 12 位'"
+            :hint="editing ? '留空则不修改' : '不能为空'"
             :required="!editing"
           >
             <UInput
