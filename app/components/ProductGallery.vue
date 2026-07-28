@@ -50,7 +50,7 @@ const activeImage = computed(() => galleryImages.value[activeIndex.value])
           decoding="async"
           width="320"
           height="320"
-        >
+        />
       </button>
     </div>
   </div>
