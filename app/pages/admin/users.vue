@@ -330,70 +330,76 @@ onMounted(load)
         />
       </div>
     </AdminOperationsPageState>
-    <UCard>
-      <template #header>
-        <div>
-          <h2 class="font-semibold text-highlighted">
-            修改我的密码
-          </h2><p class="mt-1 text-sm text-muted">
-            修改后请使用新密码继续登录。
-          </p>
+    <form @submit.prevent="changeOwnPassword">
+      <UCard>
+        <template #header>
+          <div>
+            <h2 class="font-semibold text-highlighted">
+              修改我的密码
+            </h2><p class="mt-1 text-sm text-muted">
+              修改后请使用新密码继续登录。
+            </p>
+          </div>
+        </template>
+        <div class="grid gap-4 lg:grid-cols-3">
+          <UFormField
+            label="当前密码"
+            required
+          >
+            <UInput
+              v-model="ownPassword.currentPassword"
+              type="password"
+              class="w-full"
+            />
+          </UFormField><UFormField
+            label="新密码"
+            hint="不能为空"
+            required
+          >
+            <UInput
+              v-model="ownPassword.newPassword"
+              type="password"
+              class="w-full"
+            />
+          </UFormField><UFormField
+            label="确认新密码"
+            required
+          >
+            <UInput
+              v-model="ownPassword.confirmPassword"
+              type="password"
+              class="w-full"
+            />
+          </UFormField>
         </div>
-      </template>
-      <div class="grid gap-4 lg:grid-cols-3">
-        <UFormField
-          label="当前密码"
-          required
-        >
-          <UInput
-            v-model="ownPassword.currentPassword"
-            type="password"
-            class="w-full"
-          />
-        </UFormField><UFormField
-          label="新密码"
-          hint="不能为空"
-          required
-        >
-          <UInput
-            v-model="ownPassword.newPassword"
-            type="password"
-            class="w-full"
-          />
-        </UFormField><UFormField
-          label="确认新密码"
-          required
-        >
-          <UInput
-            v-model="ownPassword.confirmPassword"
-            type="password"
-            class="w-full"
-          />
-        </UFormField>
-      </div>
-      <template #footer>
-        <div class="flex justify-end">
-          <UButton
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-key-round"
-            label="修改密码"
-            :loading="changingPassword"
-            @click="changeOwnPassword"
-          />
-        </div>
-      </template>
-    </UCard>
+        <template #footer>
+          <div class="flex justify-end">
+            <UButton
+              type="submit"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-key-round"
+              label="修改密码"
+              :loading="changingPassword"
+            />
+          </div>
+        </template>
+      </UCard>
+    </form>
     <div
       v-if="formOpen"
       class="fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-black/60 p-4"
       @click.self="formOpen = false"
     >
-      <section class="w-full max-w-xl rounded-2xl border border-default bg-default p-6">
+      <form
+        class="w-full max-w-xl rounded-2xl border border-default bg-default p-6"
+        @submit.prevent="requestSave"
+      >
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold text-highlighted">
             {{ editing ? '编辑管理员' : '新增管理员' }}
           </h2><UButton
+            type="button"
             color="neutral"
             variant="ghost"
             icon="i-lucide-x"
@@ -457,18 +463,19 @@ onMounted(load)
         </div>
         <div class="mt-6 flex justify-end gap-3">
           <UButton
+            type="button"
             color="neutral"
             variant="ghost"
             label="取消"
             @click="formOpen = false"
           /><UButton
+            type="submit"
             icon="i-lucide-save"
             :label="editing ? '保存修改' : '创建管理员'"
             :loading="saving"
-            @click="requestSave"
           />
         </div>
-      </section>
+      </form>
     </div>
     <AdminOperationsConfirmDialog
       :open="confirmMode === 'save'"
