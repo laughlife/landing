@@ -17,19 +17,19 @@ export default defineEventHandler(async (event) => {
   enforceRateLimit(event, `login:ip:${context.ipAddress ?? 'unknown'}`, 10, 15 * 60 * 1000)
   enforceRateLimit(event, `login:user:${usernameKey}`, 8, 15 * 60 * 1000)
   return withApiErrorBoundary(event, async () => {
-    const user = await prisma.adminUser.findUnique({ where: { username: input.username }, select: { id: true, username: true, passwordHash: true, displayName: true, role: true, status: true } })
+    const user = await prisma.adminUser.findUnique({ where: { username: input.username }, select: { id: true, username: true, passwordHash: true, displayName: true, role: true, status: true, sessionVersion: true } })
     if (!user || user.status !== 'ENABLED' || !(await verifyPassword(user.passwordHash, input.password))) {
       fail(event, 401, 'INVALID_CREDENTIALS', '用户名或密码错误')
     }
     await prisma.$transaction(async (transaction) => {
       const updated = await transaction.adminUser.updateMany({
-        where: { id: user.id, status: 'ENABLED' },
+        where: { id: user.id, status: 'ENABLED', sessionVersion: user.sessionVersion },
         data: { lastLoginAt: new Date(), lastLoginIp: context.ipAddress }
       })
       if (updated.count !== 1) fail(event, 401, 'INVALID_CREDENTIALS', '用户名或密码错误')
       await writeAudit(event, { adminUserId: user.id, module: 'auth', action: 'LOGIN', targetType: 'adminUser', targetId: user.id, summary: '管理员登录' }, transaction)
     })
-    await setUserSession(event, { user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role } })
+    await setUserSession(event, { user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role, sessionVersion: user.sessionVersion } })
     return success({ user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role } }, '登录成功')
   })
 })

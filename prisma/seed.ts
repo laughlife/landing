@@ -38,7 +38,8 @@ async function seedAdmin() {
       data: {
         passwordHash,
         role: 'SUPER_ADMIN',
-        status: 'ENABLED'
+        status: 'ENABLED',
+        sessionVersion: { increment: 1 }
       }
     })
   }

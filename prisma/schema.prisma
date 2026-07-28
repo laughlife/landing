@@ -63,6 +63,7 @@ model AdminUser {
   avatar       String?     @db.VarChar(1024)
   role         AdminRole   @default(SUPER_ADMIN)
   status       AdminStatus @default(ENABLED)
+  sessionVersion Int       @default(1) @map("session_version") @db.UnsignedInt
   lastLoginAt  DateTime?   @map("last_login_at") @db.DateTime(3)
   lastLoginIp  String?     @map("last_login_ip") @db.VarChar(45)
   createdAt    DateTime    @default(now()) @map("created_at") @db.DateTime(3)

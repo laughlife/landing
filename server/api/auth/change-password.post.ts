@@ -19,19 +19,20 @@ export default defineEventHandler(async (event) => {
   const input = await parseRequestBody(event, changePasswordSchema)
   if (input.currentPassword === input.newPassword) fail(event, 400, 'VALIDATION_ERROR', '新密码不能与当前密码相同')
   return withApiErrorBoundary(event, async () => {
-    const user = await prisma.adminUser.findUnique({ where: { id: actor.id }, select: { passwordHash: true, status: true } })
+    const user = await prisma.adminUser.findUnique({ where: { id: actor.id }, select: { passwordHash: true, status: true, sessionVersion: true } })
     if (!user || user.status !== 'ENABLED' || !(await verifyPassword(user.passwordHash, input.currentPassword))) {
       fail(event, 400, 'INVALID_CURRENT_PASSWORD', '当前密码错误')
     }
     const passwordHash = await hashPassword(input.newPassword)
     await prisma.$transaction(async (transaction) => {
       const updated = await transaction.adminUser.updateMany({
-        where: { id: actor.id, status: 'ENABLED', passwordHash: user.passwordHash },
-        data: { passwordHash }
+        where: { id: actor.id, status: 'ENABLED', passwordHash: user.passwordHash, sessionVersion: user.sessionVersion },
+        data: { passwordHash, sessionVersion: { increment: 1 } }
       })
       if (updated.count !== 1) fail(event, 400, 'INVALID_CURRENT_PASSWORD', '当前密码错误或账号状态已变化')
       await writeAudit(event, { adminUserId: actor.id, module: 'auth', action: 'UPDATE_ADMIN', targetType: 'adminUser', targetId: actor.id, summary: '修改当前账号密码' }, transaction)
     })
+    await clearUserSession(event)
     return success(null, '密码修改成功')
   })
 })

@@ -8,9 +8,18 @@ export type AdminSession = { id: number, username: string, displayName: string, 
 export async function requireAdminSession(event: H3Event): Promise<AdminSession> {
   const session = await getUserSession(event)
   const user = session.user
-  if (!user?.id || !user.role) return fail(event, 401, 'UNAUTHORIZED', '请先登录')
-  const persisted = await prisma.adminUser.findUnique({ where: { id: user.id }, select: { id: true, username: true, displayName: true, role: true, status: true } })
-  if (!persisted || persisted.status !== 'ENABLED') return fail(event, 401, 'UNAUTHORIZED', '登录状态已失效')
+  if (!user?.id || !user.role || !Number.isSafeInteger(user.sessionVersion) || user.sessionVersion < 1) {
+    await clearUserSession(event)
+    return fail(event, 401, 'UNAUTHORIZED', '请先登录')
+  }
+  const persisted = await prisma.adminUser.findUnique({
+    where: { id: user.id },
+    select: { id: true, username: true, displayName: true, role: true, status: true, sessionVersion: true }
+  })
+  if (!persisted || persisted.status !== 'ENABLED' || persisted.sessionVersion !== user.sessionVersion) {
+    await clearUserSession(event)
+    return fail(event, 401, 'UNAUTHORIZED', '登录状态已失效')
+  }
   return {
     id: persisted.id,
     username: persisted.username,

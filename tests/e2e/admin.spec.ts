@@ -43,24 +43,30 @@ async function login(page: Page, username: string, password: string) {
   await expect(page).toHaveURL('/admin')
 }
 
-async function uploadThroughInput(page: Page, testId: string, files: UploadInputFile[]) {
-  const responses: Response[] = []
+async function uploadThroughInput(
+  page: Page,
+  testId: string,
+  files: UploadInputFile[],
+  onUploaded: (media: UploadedMedia) => void
+) {
+  const uploads: Array<Promise<UploadedMedia>> = []
   const capture = (response: Response) => {
     if (response.url().endsWith('/api/upload') && response.request().method() === 'POST') {
-      responses.push(response)
+      uploads.push((async () => {
+        if (response.status() !== 200) throw new Error(`upload returned ${response.status()}`)
+        const media = (await response.json() as ApiEnvelope<UploadedMedia>).data
+        onUploaded(media)
+        return media
+      })())
     }
   }
   page.on('response', capture)
   try {
     await page.getByTestId(testId).setInputFiles(files)
-    await expect.poll(() => responses.length, { timeout: 30_000 }).toBe(files.length)
-    const uploaded: UploadedMedia[] = []
-    for (const response of responses) {
-      expect(response.status()).toBe(200)
-      uploaded.push((await response.json() as ApiEnvelope<UploadedMedia>).data)
-    }
-    return uploaded
+    await expect.poll(() => uploads.length, { timeout: 30_000 }).toBe(files.length)
+    return await Promise.all(uploads)
   } finally {
+    await Promise.allSettled(uploads)
     page.off('response', capture)
   }
 }
@@ -88,6 +94,7 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const editorUsername = `qa_editor_${runId.replaceAll('-', '_')}`
   const editorPassword = `Qa!${runId}SecurePassword`
+  const editorNewPassword = `QaNew!${runId}SecurePassword`
   const productSlug = `qa-product-${runId}`
   const productName = `E2E 测试产品 ${runId}`
   let editorId: number | undefined
@@ -179,9 +186,8 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
       name: `qa-cover-${runId}.png`,
       mimeType: 'image/png',
       buffer: png
-    }])
+    }], rememberUploadedMedia)
     expect(coverMedia).toBeTruthy()
-    rememberUploadedMedia(coverMedia!)
     await expect(page.getByAltText('产品封面预览')).toHaveAttribute('src', coverMedia!.url)
 
     const detailInput = page.getByTestId('product-detail-upload')
@@ -190,9 +196,8 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
     const detailMedia = await uploadThroughInput(page, 'product-detail-upload', [
       { name: `qa-detail-a-${runId}.png`, mimeType: 'image/png', buffer: png },
       { name: `qa-detail-b-${runId}.png`, mimeType: 'image/png', buffer: png }
-    ])
+    ], rememberUploadedMedia)
     expect(detailMedia).toHaveLength(2)
-    detailMedia.forEach(rememberUploadedMedia)
     expect(new Set(detailMedia.map(media => media.id)).size).toBe(2)
     await expect(page.locator('input[placeholder="媒体库 ID"]')).toHaveCount(2)
 
@@ -259,6 +264,7 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
     const copiedDetail = await copiedDetailResponse.json() as ApiEnvelope<{ images: Array<{ mediaId: number }> }>
     expect(copiedDetail.data.images.map(image => image.mediaId)).toEqual(detailMedia.map(media => media.id))
 
+    const superCookies = await page.context().cookies()
     expect((await page.request.post('/api/auth/logout', { headers: originHeaders })).status()).toBe(200)
     await login(page, editorUsername, editorPassword)
     await expect(page.getByRole('link', { name: '管理员管理' })).toHaveCount(0)
@@ -271,6 +277,66 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
     expect(editorDashboard.data).not.toHaveProperty('recentLogs')
     await page.goto('/admin/users')
     await expect(page).toHaveURL('/admin')
+
+    const editorCookiesBeforePasswordChange = await page.context().cookies()
+    const passwordChangeResponse = await page.request.post('/api/auth/change-password', {
+      headers: originHeaders,
+      data: {
+        currentPassword: editorPassword,
+        newPassword: editorNewPassword,
+        confirmPassword: editorNewPassword
+      }
+    })
+    expect(passwordChangeResponse.status()).toBe(200)
+    await expectApiError(await page.request.get('/api/auth/session'), 401, 'UNAUTHORIZED')
+    await page.context().addCookies(editorCookiesBeforePasswordChange)
+    await expectApiError(await page.request.get('/api/admin/dashboard'), 401, 'UNAUTHORIZED')
+    await expectApiError(await page.request.post('/api/auth/login', {
+      headers: originHeaders,
+      data: { username: editorUsername, password: editorPassword }
+    }), 401, 'INVALID_CREDENTIALS')
+    expect((await page.request.post('/api/auth/login', {
+      headers: originHeaders,
+      data: { username: editorUsername, password: editorNewPassword }
+    })).status()).toBe(200)
+    const editorCookiesAfterPasswordChange = await page.context().cookies()
+
+    await page.context().clearCookies()
+    await page.context().addCookies(superCookies)
+    expect((await page.request.patch(`/api/admin/users/${editorId}`, {
+      headers: originHeaders,
+      data: {
+        username: editorUsername,
+        displayName: 'E2E 内容编辑',
+        email: null,
+        avatar: null,
+        role: 'EDITOR',
+        status: 'DISABLED'
+      }
+    })).status()).toBe(200)
+    await page.context().clearCookies()
+    await page.context().addCookies(editorCookiesAfterPasswordChange)
+    await expectApiError(await page.request.get('/api/auth/session'), 401, 'UNAUTHORIZED')
+
+    await page.context().clearCookies()
+    await page.context().addCookies(superCookies)
+    expect((await page.request.patch(`/api/admin/users/${editorId}`, {
+      headers: originHeaders,
+      data: {
+        username: editorUsername,
+        displayName: 'E2E 内容编辑',
+        email: null,
+        avatar: null,
+        role: 'EDITOR',
+        status: 'ENABLED'
+      }
+    })).status()).toBe(200)
+    await page.context().clearCookies()
+    await page.context().addCookies(editorCookiesAfterPasswordChange)
+    await expectApiError(await page.request.get('/api/admin/dashboard'), 401, 'UNAUTHORIZED')
+
+    await page.context().clearCookies()
+    await page.context().addCookies(superCookies)
     expect((await page.request.post('/api/auth/logout', { headers: originHeaders })).status()).toBe(200)
     await page.goto('/admin')
     await expect(page).toHaveURL(/\/admin\/login/)

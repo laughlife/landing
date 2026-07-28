@@ -4,6 +4,7 @@ declare module '#auth-utils' {
     username: string
     displayName: string
     role: 'SUPER_ADMIN' | 'EDITOR'
+    sessionVersion: number
   }
 }
 

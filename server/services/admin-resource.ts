@@ -216,7 +216,7 @@ export async function createResource(event: H3Event, resource: AdminResource, in
 }
 
 export async function updateResource(event: H3Event, resource: AdminResource, id: number, input: Record<string, unknown>, actor: AdminSession) {
-  const existing = await getResource(event, resource, id) as { role?: string, id: number }
+  const existing = await getResource(event, resource, id) as { role?: string, status?: string, id: number }
   if (resource === 'users') {
     if (actor.role !== 'SUPER_ADMIN') fail(event, 403, 'FORBIDDEN', '仅超级管理员可管理账号')
     if (existing.role === 'SUPER_ADMIN' && actor.id !== id) {
@@ -229,6 +229,12 @@ export async function updateResource(event: H3Event, resource: AdminResource, id
   const raw = { ...input }
   const data = cleanPayload(raw)
   if (resource === 'users' && raw.password) data.passwordHash = await hashPassword(String(raw.password))
+  if (
+    resource === 'users'
+    && (raw.password || (existing.status === 'ENABLED' && raw.status === 'DISABLED'))
+  ) {
+    data.sessionVersion = { increment: 1 }
+  }
   if (resource === 'products' && data.status === 'PUBLISHED') data.publishedAt = new Date()
   const updated = await prisma.$transaction(async (transaction) => {
     const transactionDelegates = resourceDelegates(transaction)

@@ -33,7 +33,8 @@ async function main() {
         passwordHash,
         displayName,
         role: 'SUPER_ADMIN',
-        status: 'ENABLED'
+        status: 'ENABLED',
+        sessionVersion: { increment: 1 }
       }
     })
     console.log(`管理员 ${username} 已更新。`)

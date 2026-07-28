@@ -131,10 +131,16 @@ async function changeOwnPassword() {
   changingPassword.value = true
   try {
     const response = await $fetch<ApiResponse<unknown>>('/api/auth/change-password', {
-      method: 'POST', body: { currentPassword: ownPassword.value.currentPassword, newPassword: ownPassword.value.newPassword }
+      method: 'POST',
+      body: {
+        currentPassword: ownPassword.value.currentPassword,
+        newPassword: ownPassword.value.newPassword,
+        confirmPassword: ownPassword.value.confirmPassword
+      }
     })
     notice.value = response.message || '登录密码已修改'
     ownPassword.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
+    await navigateTo('/admin/login')
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : '密码修改失败'
   } finally {
