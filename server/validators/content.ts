@@ -40,4 +40,23 @@ export const serviceSchema = z.object({ name: z.string().trim().min(1).max(200),
 export const bannerSchema = z.object({ title: z.string().trim().min(1).max(255), subtitle: z.string().trim().max(1000).optional().nullable(), image: relativeUrlSchema, mobileImage: relativeUrlSchema, buttonText: z.string().trim().max(100).optional().nullable(), buttonLink: z.string().trim().max(1024).refine(value => value.startsWith('/') || /^https?:\/\//i.test(value), '链接必须是站内路径或 HTTP(S) 地址').optional().nullable(), position: z.string().trim().min(1).max(64).default('HOME_HERO'), sortOrder: z.coerce.number().int().min(-100000).max(100000).default(0), status: displayStatus.default('ENABLED'), startAt: z.coerce.date().optional().nullable(), endAt: z.coerce.date().optional().nullable() }).refine(value => !value.startAt || !value.endAt || value.startAt <= value.endAt, '结束时间必须晚于开始时间')
 export const articleSchema = z.object({ title: z.string().trim().min(1).max(255), slug: slugSchema, summary: z.string().max(10_000).optional().nullable(), content: richTextSchema, coverImage: relativeUrlSchema, author: z.string().trim().max(100).optional().nullable(), status: contentStatus.default('DRAFT'), isFeatured: z.boolean().default(false), sortOrder: z.coerce.number().int().min(-100000).max(100000).default(0), seoTitle: z.string().trim().max(255).optional().nullable(), seoKeywords: z.string().trim().max(500).optional().nullable(), seoDescription: z.string().max(10_000).optional().nullable(), publishedAt: z.coerce.date().optional().nullable() })
 export const messageSchema = z.object({ status: z.enum(['NEW', 'PROCESSING', 'RESOLVED', 'SPAM']), adminRemark: z.string().max(10_000).optional().nullable() })
-export const userSchema = z.object({ username: z.string().trim().min(3).max(64).regex(/^[a-zA-Z0-9_.-]+$/), password: z.string().min(12).max(128).optional(), displayName: z.string().trim().min(1).max(100), email: z.string().trim().email().max(254).optional().nullable(), avatar: relativeUrlSchema, role: z.enum(['SUPER_ADMIN', 'EDITOR']).default('EDITOR'), status: z.enum(['ENABLED', 'DISABLED']).default('ENABLED') })
+
+const userPasswordSchema = z.string().min(12).max(128)
+const userBaseSchema = z.object({
+  username: z.string().trim().min(3).max(64).regex(/^[a-zA-Z0-9_.-]+$/),
+  displayName: z.string().trim().min(1).max(100),
+  email: z.string().trim().email().max(254).optional().nullable(),
+  avatar: relativeUrlSchema,
+  role: z.enum(['SUPER_ADMIN', 'EDITOR']),
+  status: z.enum(['ENABLED', 'DISABLED'])
+})
+
+export const userCreateSchema = userBaseSchema.extend({
+  password: userPasswordSchema,
+  role: userBaseSchema.shape.role.default('EDITOR'),
+  status: userBaseSchema.shape.status.default('ENABLED')
+})
+
+export const userUpdateSchema = userBaseSchema.partial().extend({
+  password: z.preprocess(value => value === '' ? undefined : value, userPasswordSchema.optional())
+})

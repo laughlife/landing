@@ -4,9 +4,9 @@ import { parseRequestBody } from '../../../utils/validation'
 import { assertSameOrigin } from '../../../utils/security'
 import { getAdminResource, resourceId, updateResource } from '../../../services/admin-resource'
 import { withApiErrorBoundary } from '../../../utils/api-error'
-import { articleSchema, bannerSchema, categorySchema, messageSchema, partnerSchema, productSchema, serviceSchema, userSchema } from '../../../validators/content'
+import { articleSchema, bannerSchema, categorySchema, messageSchema, partnerSchema, productSchema, serviceSchema, userUpdateSchema } from '../../../validators/content'
 
-const schemas = { products: productSchema, categories: categorySchema, partners: partnerSchema, services: serviceSchema, banners: bannerSchema, articles: articleSchema, messages: messageSchema, users: userSchema } as const
+const schemas = { products: productSchema, categories: categorySchema, partners: partnerSchema, services: serviceSchema, banners: bannerSchema, articles: articleSchema, messages: messageSchema, users: userUpdateSchema } as const
 
 export default defineEventHandler(async (event) => {
   assertSameOrigin(event)
