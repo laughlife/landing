@@ -32,6 +32,8 @@ server/generated/prisma/
 output/playwright/
 playwright-report/
 test-results/
+nywysm.zip
+.nywysm.*.zip
 
 #VSC
 .history
