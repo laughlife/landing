@@ -14,6 +14,8 @@ const products = computed(() => data.value?.products ?? data.value?.featuredProd
 const partners = computed(() => data.value?.partners ?? data.value?.featuredPartners ?? [])
 const articles = computed(() => data.value?.articles ?? data.value?.latestArticles ?? [])
 const cooperationSteps = computed(() => (data.value?.services ?? []).flatMap(service => service.processSteps ?? []).slice(0, 4))
+const fallbackImage = usePublicFallbackImage()
+const heroSourceEnabled = ref(true)
 const canonical = computed(() => new URL(route.path, siteOrigin.value).toString())
 const title = computed(() => data.value?.site?.siteTitle || company.value?.companyName || '南阳市吴月商贸行')
 const description = computed(() => data.value?.site?.siteDescription || company.value?.introduction || company.value?.slogan || '南阳市吴月商贸行，专注提供可靠的商贸产品与合作服务。')
@@ -25,10 +27,10 @@ useSeoMeta({
   ogTitle: title,
   ogDescription: description,
   ogUrl: canonical,
-  ogImage: computed(() => banner.value?.image || company.value?.logo || '/wuyue.png'),
+  ogImage: computed(() => banner.value?.image || company.value?.logo || fallbackImage.value),
   twitterTitle: title,
   twitterDescription: description,
-  twitterImage: computed(() => banner.value?.image || company.value?.logo || '/wuyue.png')
+  twitterImage: computed(() => banner.value?.image || company.value?.logo || fallbackImage.value)
 })
 
 useHead(() => ({
@@ -41,7 +43,7 @@ useHead(() => ({
           '@type': 'Organization',
           'name': company.value.companyName,
           'url': siteOrigin.value,
-          'logo': company.value.logo,
+          'logo': company.value.logo || fallbackImage.value,
           'telephone': company.value.phone,
           'email': company.value.email,
           'address': company.value.address
@@ -63,21 +65,21 @@ useHead(() => ({
   <div>
     <section class="relative isolate overflow-hidden border-b border-default">
       <div class="absolute inset-0 -z-10 bg-muted" />
-      <picture
-        v-if="banner?.image"
-        class="absolute inset-0 -z-10 size-full object-cover opacity-25"
-      >
+      <picture class="absolute inset-0 -z-10 size-full object-cover opacity-25">
         <source
-          v-if="banner.mobileImage"
+          v-if="banner?.mobileImage && heroSourceEnabled"
           media="(max-width: 640px)"
           :srcset="banner.mobileImage"
         >
-        <img
-          :src="banner.image"
-          :alt="banner.title"
+        <SiteImage
+          :src="banner?.image"
+          :fallback-src="data?.site?.fallbackImage"
+          :reset-key="heroSourceEnabled"
+          :alt="banner?.title || company?.companyName || '南阳市吴月商贸行'"
           class="size-full object-cover"
           fetchpriority="high"
-        >
+          @fallback="heroSourceEnabled = false"
+        />
       </picture>
       <GradientGlow class="top-0 h-full w-full opacity-80" />
       <div class="mx-auto grid max-w-7xl gap-10 px-6 py-20 sm:px-8 sm:py-28 lg:grid-cols-[1.2fr_.8fr] lg:items-center lg:py-36">

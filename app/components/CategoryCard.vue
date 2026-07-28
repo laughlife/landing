@@ -11,20 +11,15 @@ const cardImage = computed(() => publicImageVariant(props.category.coverImage, 4
     class="group block overflow-hidden rounded-2xl border border-default bg-elevated transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg"
   >
     <div class="relative aspect-[16/10] overflow-hidden bg-muted">
-      <img
-        v-if="category.coverImage"
+      <SiteImage
         :src="cardImage"
+        :original-src="category.coverImage"
         :alt="category.name"
         class="size-full object-cover transition duration-500 group-hover:scale-105"
         loading="lazy"
         decoding="async"
         width="480"
         height="300"
-      >
-      <UIcon
-        v-else
-        :name="category.icon || 'i-lucide-boxes'"
-        class="absolute inset-0 m-auto size-10 text-dimmed"
       />
     </div>
     <div class="p-5">

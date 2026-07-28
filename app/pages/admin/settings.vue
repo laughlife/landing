@@ -42,6 +42,7 @@ async function load() {
     form.value = {
       ...blank(),
       ...response.data,
+      fallbackImage: response.data.fallbackImage || '',
       socialLinks: Array.isArray(response.data.socialLinks)
         ? response.data.socialLinks.map(item => ({ name: item.name, url: item.url || '' }))
         : []
@@ -74,12 +75,13 @@ async function save() {
     const contactConfig = JSON.parse(contactJson.value) as Record<string, unknown>
     const payload = {
       ...form.value,
+      fallbackImage: form.value.fallbackImage.trim() || null,
       themeConfig,
       contactConfig,
       socialLinks: form.value.socialLinks.filter(item => item.name.trim() && item.url?.trim()).map(item => ({ name: item.name.trim(), url: item.url!.trim() }))
     }
     const response = await $fetch<ApiResponse<SettingsForm>>('/api/admin/site-settings', { method: 'PUT', body: payload })
-    form.value = { ...blank(), ...response.data }
+    form.value = { ...blank(), ...response.data, fallbackImage: response.data.fallbackImage || '' }
     themeJson.value = JSON.stringify(form.value.themeConfig || {}, null, 2)
     contactJson.value = JSON.stringify(form.value.contactConfig || {}, null, 2)
     dirty.value = false

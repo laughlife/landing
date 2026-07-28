@@ -14,7 +14,8 @@ if (!service.value) throw createError({ statusCode: 404, statusMessage: '服务�
 const canonical = computed(() => new URL(route.path, siteOrigin.value).toString())
 const title = computed(() => service.value?.seoTitle || service.value?.name || '服务项目')
 const description = computed(() => service.value?.seoDescription || service.value?.summary || '')
-useSeoMeta({ title, description, ogTitle: title, ogDescription: description, ogUrl: canonical, ogImage: computed(() => service.value?.coverImage), twitterTitle: title, twitterDescription: description, twitterImage: computed(() => service.value?.coverImage) })
+const fallbackImage = usePublicFallbackImage()
+useSeoMeta({ title, description, ogTitle: title, ogDescription: description, ogUrl: canonical, ogImage: computed(() => service.value?.coverImage || fallbackImage.value), twitterTitle: title, twitterDescription: description, twitterImage: computed(() => service.value?.coverImage || fallbackImage.value) })
 useHead(() => ({
   link: [{ rel: 'canonical', href: canonical.value }],
   script: service.value
@@ -52,12 +53,11 @@ useHead(() => ({
       /><span class="text-toned">{{ service.name }}</span>
     </nav>
     <section class="overflow-hidden rounded-3xl border border-default bg-elevated">
-      <img
-        v-if="service.coverImage"
+      <SiteImage
         :src="service.coverImage"
         :alt="service.name"
         class="aspect-[2/1] w-full object-cover"
-      >
+      />
       <div class="p-7 sm:p-10">
         <div class="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <UIcon

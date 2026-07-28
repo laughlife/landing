@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const colorMode = useColorMode()
+const fallbackImage = usePublicFallbackImage()
 
 const color = computed(() => colorMode.value === 'dark' ? '#111827' : '#ffffff')
 
@@ -13,7 +14,7 @@ useHead({
 })
 
 useSeoMeta({
-  ogImage: '/wuyue.png',
+  ogImage: computed(() => fallbackImage.value),
   twitterCard: 'summary_large_image'
 })
 </script>

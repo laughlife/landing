@@ -11,20 +11,15 @@ const cardImage = computed(() => publicImageVariant(props.article.coverImage, 48
     class="group block overflow-hidden rounded-2xl border border-default bg-elevated transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg"
   >
     <div class="relative aspect-[16/9] overflow-hidden bg-muted">
-      <img
-        v-if="article.coverImage"
+      <SiteImage
         :src="cardImage"
+        :original-src="article.coverImage"
         :alt="article.title"
         class="size-full object-cover transition duration-500 group-hover:scale-105"
         loading="lazy"
         decoding="async"
         width="480"
         height="270"
-      >
-      <UIcon
-        v-else
-        name="i-lucide-newspaper"
-        class="absolute inset-0 m-auto size-10 text-dimmed"
       />
     </div>
     <div class="p-5">

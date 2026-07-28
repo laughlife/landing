@@ -22,16 +22,10 @@ const activeImage = computed(() => galleryImages.value[activeIndex.value])
 <template>
   <div>
     <div class="relative aspect-square overflow-hidden rounded-2xl bg-muted">
-      <img
-        v-if="activeImage"
-        :src="activeImage.imageUrl"
-        :alt="activeImage.altText || name"
+      <SiteImage
+        :src="activeImage?.imageUrl"
+        :alt="activeImage?.altText || name"
         class="size-full object-cover"
-      >
-      <UIcon
-        v-else
-        name="i-lucide-package-search"
-        class="absolute inset-0 m-auto size-14 text-dimmed"
       />
     </div>
     <div
@@ -47,8 +41,9 @@ const activeImage = computed(() => galleryImages.value[activeIndex.value])
         class="size-18 shrink-0 overflow-hidden rounded-lg bg-muted"
         @click="activeIndex = index"
       >
-        <img
+        <SiteImage
           :src="publicImageVariant(image.imageUrl, 'thumb')"
+          :original-src="image.imageUrl"
           :alt="image.altText || name"
           class="size-full object-cover"
           loading="lazy"

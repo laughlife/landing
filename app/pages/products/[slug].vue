@@ -18,6 +18,7 @@ if (!product.value) {
 const canonical = computed(() => new URL(route.path, siteOrigin.value).toString())
 const title = computed(() => product.value?.seoTitle || product.value?.name || '产品详情')
 const description = computed(() => product.value?.seoDescription || product.value?.summary || product.value?.subtitle || '')
+const fallbackImage = usePublicFallbackImage()
 useSeoMeta({
   title,
   description,
@@ -25,10 +26,10 @@ useSeoMeta({
   ogTitle: title,
   ogDescription: description,
   ogUrl: canonical,
-  ogImage: computed(() => product.value?.coverImage),
+  ogImage: computed(() => product.value?.coverImage || fallbackImage.value),
   twitterTitle: title,
   twitterDescription: description,
-  twitterImage: computed(() => product.value?.coverImage)
+  twitterImage: computed(() => product.value?.coverImage || fallbackImage.value)
 })
 useHead(() => ({
   link: [{ rel: 'canonical', href: canonical.value }],
@@ -40,7 +41,7 @@ useHead(() => ({
           '@type': 'Product',
           'name': product.value.name,
           'description': description.value,
-          'image': product.value.coverImage ? [new URL(product.value.coverImage, siteOrigin.value).toString()] : undefined,
+          'image': [new URL(product.value.coverImage || fallbackImage.value, siteOrigin.value).toString()],
           'sku': product.value.model
         })
       }, {

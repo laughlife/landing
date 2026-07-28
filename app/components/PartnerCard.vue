@@ -8,20 +8,16 @@ const logoImage = computed(() => publicImageVariant(props.partner.logo, 'thumb')
 <template>
   <article class="rounded-2xl border border-default bg-elevated p-5">
     <div class="flex min-h-20 items-center justify-center rounded-xl bg-default p-4">
-      <img
-        v-if="partner.logo"
+      <SiteImage
         :src="logoImage"
+        :original-src="partner.logo"
         :alt="partner.name"
         class="max-h-12 max-w-full object-contain"
         loading="lazy"
         decoding="async"
         width="320"
         height="96"
-      >
-      <span
-        v-else
-        class="text-center text-sm font-medium text-dimmed"
-      >{{ partner.name }}</span>
+      />
     </div>
     <p
       v-if="partner.cooperationType"

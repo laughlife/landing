@@ -10,7 +10,8 @@ const { data: company, pending, error } = await useAsyncData('public:company', (
 const canonical = computed(() => new URL('/about', siteOrigin.value).toString())
 const title = computed(() => company.value?.companyName ? `公司介绍｜${company.value.companyName}` : '公司介绍')
 const description = computed(() => company.value?.introduction || company.value?.slogan || '了解南阳市吴月商贸行的公司信息、业务范围和服务理念。')
-useSeoMeta({ title, description, ogTitle: title, ogDescription: description, ogUrl: canonical, ogImage: computed(() => company.value?.logo) })
+const fallbackImage = usePublicFallbackImage()
+useSeoMeta({ title, description, ogTitle: title, ogDescription: description, ogUrl: canonical, ogImage: computed(() => company.value?.logo || fallbackImage.value) })
 useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
 </script>
 
@@ -23,14 +24,10 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
     <template v-if="company && !pending && !error">
       <section class="grid gap-10 rounded-3xl border border-default bg-elevated p-7 sm:p-10 lg:grid-cols-[.7fr_1.3fr] lg:items-center">
         <div class="flex aspect-square items-center justify-center rounded-2xl bg-default p-10">
-          <img
-            v-if="company.logo"
+          <SiteImage
             :src="company.logo"
             :alt="company.companyName"
             class="max-h-full max-w-full object-contain"
-          ><AppLogo
-            v-else
-            class="size-32 object-contain"
           />
         </div>
         <div>

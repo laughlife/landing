@@ -31,14 +31,9 @@ function toggleColorMode() {
         class="flex items-center gap-3"
         aria-label="南阳市吴月商贸行首页"
       >
-        <img
-          v-if="site?.logo"
-          :src="site.logo"
-          :alt="site.siteName"
-          class="size-9 shrink-0 rounded-md object-contain"
-        >
-        <AppLogo
-          v-else
+        <SiteImage
+          :src="site?.logo"
+          :alt="site?.siteName || '南阳市吴月商贸行'"
           class="size-9 shrink-0 rounded-md object-contain"
         />
         <span class="text-sm font-semibold tracking-wide sm:text-base">{{ site?.siteName || '南阳市吴月商贸行' }}</span>

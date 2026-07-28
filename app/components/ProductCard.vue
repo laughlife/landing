@@ -11,20 +11,15 @@ const cardImage = computed(() => publicImageVariant(props.product.coverImage, 48
     class="group block overflow-hidden rounded-2xl border border-default bg-elevated transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg"
   >
     <div class="relative aspect-[4/3] overflow-hidden bg-muted">
-      <img
-        v-if="product.coverImage"
+      <SiteImage
         :src="cardImage"
+        :original-src="product.coverImage"
         :alt="product.name"
         class="size-full object-cover transition duration-500 group-hover:scale-105"
         loading="lazy"
         decoding="async"
         width="480"
         height="360"
-      >
-      <UIcon
-        v-else
-        name="i-lucide-package-search"
-        class="absolute inset-0 m-auto size-10 text-dimmed"
       />
       <UBadge
         v-if="product.category?.name"

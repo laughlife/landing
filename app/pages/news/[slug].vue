@@ -13,6 +13,7 @@ if (!article.value) throw createError({ statusCode: 404, statusMessage: '文章�
 const canonical = computed(() => new URL(route.path, siteOrigin.value).toString())
 const title = computed(() => article.value?.seoTitle || article.value?.title || '新闻资讯')
 const description = computed(() => article.value?.seoDescription || article.value?.summary || '')
+const fallbackImage = usePublicFallbackImage()
 useSeoMeta({
   title,
   description,
@@ -20,11 +21,11 @@ useSeoMeta({
   ogTitle: title,
   ogDescription: description,
   ogUrl: canonical,
-  ogImage: computed(() => article.value?.coverImage),
+  ogImage: computed(() => article.value?.coverImage || fallbackImage.value),
   articlePublishedTime: computed(() => article.value?.publishedAt),
   twitterTitle: title,
   twitterDescription: description,
-  twitterImage: computed(() => article.value?.coverImage)
+  twitterImage: computed(() => article.value?.coverImage || fallbackImage.value)
 })
 useHead(() => ({
   link: [{ rel: 'canonical', href: canonical.value }],
@@ -36,7 +37,7 @@ useHead(() => ({
           '@type': 'Article',
           'headline': article.value.title,
           'description': description.value,
-          'image': article.value.coverImage ? [new URL(article.value.coverImage, siteOrigin.value).toString()] : undefined,
+          'image': [new URL(article.value.coverImage || fallbackImage.value, siteOrigin.value).toString()],
           'datePublished': article.value.publishedAt,
           'author': article.value.author ? { '@type': 'Person', 'name': article.value.author } : undefined
         })
@@ -85,12 +86,11 @@ useHead(() => ({
     >
       {{ article.summary }}
     </p>
-    <img
-      v-if="article.coverImage"
+    <SiteImage
       :src="article.coverImage"
       :alt="article.title"
       class="mt-10 aspect-[16/9] w-full rounded-2xl object-cover"
-    >
+    />
     <!-- eslint-disable-next-line vue/no-v-html --><div
       v-if="article.content"
       class="rich-content mt-10 leading-8 text-toned"
