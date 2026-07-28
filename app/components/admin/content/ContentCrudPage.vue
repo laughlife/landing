@@ -1,21 +1,6 @@
 <script setup lang="ts">
-type FieldKind = 'text' | 'textarea' | 'richtext' | 'number' | 'select' | 'switch' | 'datetime' | 'string-list' | 'steps'
-
-interface SelectOption {
-  label: string
-  value: string
-}
-
-interface FieldDefinition {
-  key: string
-  label: string
-  kind?: FieldKind
-  required?: boolean
-  placeholder?: string
-  description?: string
-  options?: readonly SelectOption[]
-  wide?: boolean
-}
+import type { AdminContentFieldDefinition as FieldDefinition, AdminContentSelectOption as SelectOption } from '~/utils/adminContentForm'
+import { buildAdminContentFormFromRow, buildFreshAdminContentForm } from '~/utils/adminContentForm'
 
 interface ColumnDefinition {
   key: string
@@ -95,31 +80,17 @@ function nonEmptySelectOptions(options: readonly SelectOption[] = []) {
   return options.filter(option => option.value !== '')
 }
 
-function defaultSelectValue(field: FieldDefinition) {
-  return nonEmptySelectOptions(field.options)[0]?.value
-}
-
 function selectModelValue(key: string) {
   const value = form.value[key]
   return value === null || value === undefined || value === '' ? undefined : String(value)
 }
 
 function freshForm() {
-  const next: Record<string, unknown> = { ...props.defaults }
-  for (const field of props.fields) {
-    if (next[field.key] !== undefined)
-      continue
-    next[field.key] = field.kind === 'switch'
-      ? false
-      : field.kind === 'number'
-        ? 0
-        : field.kind === 'string-list' || field.kind === 'steps'
-          ? []
-          : field.kind === 'select'
-            ? defaultSelectValue(field)
-            : ''
-  }
-  return next
+  return buildFreshAdminContentForm(props.fields, props.defaults)
+}
+
+function formFromRow(row: Record<string, unknown>) {
+  return buildAdminContentFormFromRow(props.fields, props.defaults, row)
 }
 
 function displayValue(row: Record<string, unknown>, key: string) {
@@ -189,7 +160,7 @@ function openCreate() {
 
 function openEdit(row: Record<string, unknown>) {
   editingId.value = Number(row.id)
-  form.value = { ...freshForm(), ...structuredClone(row) }
+  form.value = formFromRow(row)
   for (const field of props.fields) {
     if (field.kind !== 'datetime' || !form.value[field.key])
       continue
