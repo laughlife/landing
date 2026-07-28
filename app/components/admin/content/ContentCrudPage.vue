@@ -89,6 +89,20 @@ const form = ref<Record<string, unknown>>({})
 const formError = ref('')
 
 const editorTitle = computed(() => editingId.value ? `编辑${props.singular}` : `新增${props.singular}`)
+const statusSelectOptions = computed(() => nonEmptySelectOptions(props.statusOptions))
+
+function nonEmptySelectOptions(options: SelectOption[] = []) {
+  return options.filter(option => option.value !== '')
+}
+
+function defaultSelectValue(field: FieldDefinition) {
+  return nonEmptySelectOptions(field.options)[0]?.value
+}
+
+function selectModelValue(key: string) {
+  const value = form.value[key]
+  return value === null || value === undefined || value === '' ? undefined : String(value)
+}
 
 function freshForm() {
   const next: Record<string, unknown> = { ...props.defaults }
@@ -101,7 +115,9 @@ function freshForm() {
         ? 0
         : field.kind === 'string-list' || field.kind === 'steps'
           ? []
-          : ''
+          : field.kind === 'select'
+            ? defaultSelectValue(field)
+            : ''
   }
   return next
 }
@@ -331,7 +347,7 @@ onMounted(() => void loadRows())
         />
         <USelect
           v-model="status"
-          :items="statusOptions"
+          :items="statusSelectOptions"
         />
       </div>
 
@@ -498,8 +514,8 @@ onMounted(() => void loadRows())
               />
               <USelect
                 v-else-if="field.kind === 'select'"
-                :model-value="String(form[field.key] ?? '')"
-                :items="field.options ?? []"
+                :model-value="selectModelValue(field.key)"
+                :items="nonEmptySelectOptions(field.options)"
                 class="w-full"
                 @update:model-value="setField(field.key, $event)"
               />

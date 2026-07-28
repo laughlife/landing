@@ -24,7 +24,7 @@ const categoryError = ref('')
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const form = ref<ProductFormValue>({
-  categoryId: undefined,
+  categoryId: 0,
   name: '',
   slug: '',
   model: '',

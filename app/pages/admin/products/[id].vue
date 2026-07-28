@@ -32,7 +32,7 @@ const loadError = ref('')
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const emptyForm = (): ProductFormValue => ({
-  categoryId: undefined,
+  categoryId: 0,
   name: '',
   slug: '',
   model: '',
@@ -91,7 +91,7 @@ watch(pageData, (value) => {
   form.value = {
     ...emptyForm(),
     ...product,
-    categoryId: Number(product.categoryId ?? product.category?.id ?? 0) || undefined,
+    categoryId: Number(product.categoryId ?? product.category?.id ?? 0) || 0,
     model: product.model || '',
     subtitle: product.subtitle || '',
     summary: product.summary || '',

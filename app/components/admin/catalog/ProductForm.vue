@@ -67,7 +67,7 @@ const form = computed({
 })
 
 const categoryItems = computed(() => {
-  const items: Array<{ label: string, value: number }> = []
+  const items: Array<{ label: string, value: number }> = [{ label: '请选择分类', value: 0 }]
   const visit = (categories: CategoryOption[], depth = 0) => {
     for (const category of categories) {
       items.push({
