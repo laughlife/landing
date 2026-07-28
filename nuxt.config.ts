@@ -43,5 +43,20 @@ export default defineNuxtConfig({
         braceStyle: '1tbs'
       }
     }
+  },
+  fonts: {
+    providers: {
+      google: false,
+      googleicons: false,
+      bunny: false,
+      fontshare: false,
+      fontsource: false,
+      npm: false
+    },
+    families: [
+      { name: 'Instrument Sans', provider: 'none' },
+      { name: 'IBM Plex Mono', provider: 'none' }
+    ]
   }
+
 })

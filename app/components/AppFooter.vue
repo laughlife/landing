@@ -17,7 +17,7 @@ const links = [
   >
     <template #left>
       <p class="text-sm text-dimmed">
-        Built with Nuxt UI • © {{ new Date().getFullYear() }}
+        南阳市吴月商贸行（个人独资）
       </p>
     </template>
 

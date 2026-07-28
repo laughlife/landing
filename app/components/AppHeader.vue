@@ -58,11 +58,16 @@ const variants: Record<string, VariantType | ((custom: unknown) => VariantType)>
 <template>
   <UHeader>
     <template #left>
-      <NuxtLink to="/">
-        <AppLogo class="h-6 w-auto shrink-0" />
+      <NuxtLink
+        to="/"
+        class="flex items-center gap-2"
+        aria-label="南阳市吴月商贸行首页"
+      >
+        <AppLogo class="size-9 shrink-0 object-contain" />
+        <span class="text-sm font-semibold sm:text-base">
+          南阳市吴月商贸行
+        </span>
       </NuxtLink>
-
-      <TemplateMenu />
     </template>
 
     <UNavigationMenu
