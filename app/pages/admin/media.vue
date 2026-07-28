@@ -16,6 +16,8 @@ type MediaItem = {
 }
 type PageData<T> = { items?: T[], total?: number, page?: number, pageSize?: number, pagination?: { total: number, page: number, pageSize: number } }
 type ApiResponse<T> = { success: boolean, data: T, message: string }
+type ApiErrorResponse = { code?: string, message?: string }
+type ApiErrorEnvelope = ApiErrorResponse & { data?: ApiErrorResponse | null }
 
 const items = ref<MediaItem[]>([])
 const page = ref(1)
@@ -91,15 +93,22 @@ async function copyUrl(url: string) {
 
 async function remove() {
   if (!pendingDelete.value) return
+  const target = pendingDelete.value
+  pendingDelete.value = null
   deleting.value = true
   error.value = ''
+  notice.value = ''
   try {
-    const response = await $fetch<ApiResponse<unknown>>(`/api/admin/media/${pendingDelete.value.id}`, { method: 'DELETE' })
+    const response = await $fetch<ApiResponse<unknown>>(`/api/admin/media/${target.id}`, { method: 'DELETE' })
     notice.value = response.message || '文件已删除'
-    pendingDelete.value = null
+    if (preview.value?.id === target.id) preview.value = null
     await load()
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : '删除失败，文件可能仍被内容引用'
+    const apiError = reason as { data?: ApiErrorEnvelope, message?: string }
+    const failure = apiError.data?.code ? apiError.data : apiError.data?.data
+    error.value = failure?.code === 'MEDIA_IN_USE'
+      ? `${failure.message || '媒体文件仍被内容引用，不能删除'}。请先在新闻或其他内容中移除该图片后重试。`
+      : failure?.message || apiError.data?.message || apiError.message || '删除失败，请稍后重试'
   } finally {
     deleting.value = false
   }
