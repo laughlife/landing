@@ -19,9 +19,9 @@ useSeoMeta({
 </script>
 
 <template>
-  <NuxtLayout>
-    <UApp :toaster="{ expand: false }">
+  <UApp :toaster="{ expand: false }">
+    <NuxtLayout>
       <NuxtPage />
-    </UApp>
-  </NuxtLayout>
+    </NuxtLayout>
+  </UApp>
 </template>
