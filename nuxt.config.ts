@@ -14,6 +14,11 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  colorMode: {
+    preference: 'light',
+    fallback: 'light'
+  },
+
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL,
     uploadDir: process.env.UPLOAD_DIR || './storage/uploads',
