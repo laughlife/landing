@@ -234,17 +234,15 @@ onMounted(load)
               label="完整介绍"
               hint="可填写经过后台清理的富文本内容"
             >
-              <UTextarea
+              <AdminRichTextEditor
                 v-model="form.fullDescription"
-                class="w-full font-mono text-sm"
-                :rows="8"
+                placeholder="请输入公司完整介绍…"
               />
             </UFormField>
             <UFormField label="业务范围">
-              <UTextarea
+              <AdminRichTextEditor
                 v-model="form.businessScope"
-                class="w-full font-mono text-sm"
-                :rows="6"
+                placeholder="请输入主营业务范围…"
               />
             </UFormField>
           </div>
