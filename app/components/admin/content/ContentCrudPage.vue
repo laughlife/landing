@@ -56,6 +56,7 @@ const props = withDefaults(defineProps<{
 useSeoMeta({ robots: 'noindex, nofollow' })
 
 const toast = useToast()
+const route = useRoute()
 const rows = ref<Array<Record<string, unknown>>>([])
 const loading = ref(true)
 const loadError = ref('')
@@ -72,6 +73,7 @@ const editingId = ref<number | null>(null)
 const deletingRow = ref<Record<string, unknown> | null>(null)
 const form = ref<Record<string, unknown>>({})
 const formError = ref('')
+const openedRouteEditId = ref<number | null>(null)
 
 const editorTitle = computed(() => editingId.value ? `编辑${props.singular}` : `新增${props.singular}`)
 const statusSelectOptions = computed(() => nonEmptySelectOptions(props.statusOptions))
@@ -169,6 +171,24 @@ function openEdit(row: Record<string, unknown>) {
   }
   formError.value = ''
   editorOpen.value = true
+}
+
+async function openRouteEdit() {
+  const rawId = Array.isArray(route.query.edit) ? route.query.edit[0] : route.query.edit
+  const id = Number(rawId)
+  if (!Number.isSafeInteger(id) || id < 1 || openedRouteEditId.value === id)
+    return
+  try {
+    const response = await $fetch<ApiEnvelope<Record<string, unknown>>>(`${props.endpoint}/${id}`)
+    openedRouteEditId.value = id
+    openEdit(response.data)
+  } catch (error) {
+    toast.add({
+      title: `无法打开指定${props.singular}`,
+      description: error instanceof Error ? error.message : '记录可能已被删除',
+      color: 'error'
+    })
+  }
 }
 
 function validateForm() {
@@ -286,7 +306,11 @@ watch([keyword, status], () => {
   void loadRows()
 })
 watch(page, () => void loadRows())
-onMounted(() => void loadRows())
+watch(() => route.query.edit, () => void openRouteEdit())
+onMounted(() => {
+  void loadRows()
+  void openRouteEdit()
+})
 </script>
 
 <template>

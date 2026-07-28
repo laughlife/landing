@@ -21,6 +21,7 @@ type PageData<T> = { items?: T[], total?: number, pagination?: { total: number, 
 type ApiResponse<T> = { success: boolean, data: T, message: string }
 
 const blank = (): UserForm => ({ username: '', password: '', displayName: '', email: '', avatar: '', role: 'EDITOR', status: 'ENABLED' })
+const route = useRoute()
 const items = ref<UserItem[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -38,6 +39,7 @@ const confirmMode = ref<'save' | 'delete' | null>(null)
 const pendingDelete = ref<UserItem | null>(null)
 const ownPassword = ref({ currentPassword: '', newPassword: '', confirmPassword: '' })
 const changingPassword = ref(false)
+const openedRouteEditId = ref<number | null>(null)
 const statusOptions = [{ label: '全部状态', value: 'ALL' }, { label: '已启用', value: 'ENABLED' }, { label: '已停用', value: 'DISABLED' }]
 const roleOptions = [{ label: '超级管理员', value: 'SUPER_ADMIN' }, { label: '内容编辑员', value: 'EDITOR' }]
 
@@ -51,6 +53,20 @@ function openEdit(item: UserItem) {
   editing.value = item
   form.value = { username: item.username, password: '', displayName: item.displayName, email: item.email || '', avatar: item.avatar || '', role: item.role, status: item.status }
   formOpen.value = true
+}
+
+async function openRouteEdit() {
+  const rawId = Array.isArray(route.query.edit) ? route.query.edit[0] : route.query.edit
+  const id = Number(rawId)
+  if (!Number.isSafeInteger(id) || id < 1 || openedRouteEditId.value === id)
+    return
+  try {
+    const response = await $fetch<ApiResponse<UserItem>>(`/api/admin/users/${id}`)
+    openedRouteEditId.value = id
+    openEdit(response.data)
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '无法打开指定管理员'
+  }
 }
 
 async function load() {
@@ -165,7 +181,11 @@ watch(keyword, () => {
     load()
   }, 350)
 })
-onMounted(load)
+watch(() => route.query.edit, () => void openRouteEdit())
+onMounted(() => {
+  void load()
+  void openRouteEdit()
+})
 </script>
 
 <template>

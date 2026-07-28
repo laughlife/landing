@@ -51,12 +51,14 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 useSeoMeta({ title: '产品分类 - 后台管理', robots: 'noindex, nofollow' })
 
 const toast = useToast()
+const route = useRoute()
 const loadError = ref('')
 const editorOpen = ref(false)
 const deleteOpen = ref(false)
 const submitting = ref(false)
 const deleting = ref(false)
 const deleteTarget = ref<Category | null>(null)
+const openedRouteEditId = ref<number | null>(null)
 
 const blankForm = (): CategoryForm => ({
   id: null,
@@ -154,9 +156,26 @@ function openEdit(category: Category) {
   editorOpen.value = true
 }
 
+async function openRouteEdit() {
+  const rawId = Array.isArray(route.query.edit) ? route.query.edit[0] : route.query.edit
+  const id = Number(rawId)
+  if (!Number.isSafeInteger(id) || id < 1 || openedRouteEditId.value === id)
+    return
+  try {
+    const response = await $fetch<ApiResponse<Category>>(`/api/admin/categories/${id}`)
+    openedRouteEditId.value = id
+    openEdit(response.data)
+  } catch (error) {
+    toast.add({ title: '无法打开指定分类', description: getErrorMessage(error), color: 'error' })
+  }
+}
+
 function cleanOptional(value: string) {
   return value.trim() || null
 }
+
+watch(() => route.query.edit, () => void openRouteEdit())
+onMounted(() => void openRouteEdit())
 
 async function saveCategory() {
   if (!form.value.name.trim()) {

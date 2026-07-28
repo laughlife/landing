@@ -169,6 +169,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer))
               type="file"
               class="hidden"
               accept="image/jpeg,image/png,image/webp,image/gif"
+              :disabled="disabled"
               @change="upload"
             >
             <UButton
@@ -176,6 +177,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer))
               icon="i-lucide-upload"
               label="上传新图片"
               :loading="uploading"
+              :disabled="disabled"
               @click="fileInput?.click()"
             />
           </div>
@@ -206,6 +208,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer))
               type="button"
               class="overflow-hidden rounded-xl border text-left transition hover:border-primary"
               :class="item.url === modelValue ? 'border-primary ring-2 ring-primary/20' : 'border-default'"
+              :disabled="disabled"
               @click="select(item)"
             >
               <img
