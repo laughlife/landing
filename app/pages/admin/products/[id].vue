@@ -130,7 +130,7 @@ function validate() {
   if (form.value.specifications.some(group => !group.group.trim() || !group.items.length || group.items.some(item => !item.label.trim() || !item.value.trim()))) {
     return '请完整填写规格分组及参数'
   }
-  if (form.value.images.some(image => !image.mediaId)) return '详情图片必须填写有效的媒体 ID'
+  if (form.value.images.some(image => !image.mediaId)) return '详情图片关联已失效，请从媒体库重新选择'
   return ''
 }
 

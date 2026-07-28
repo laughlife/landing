@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { UploadedProductImage } from './ProductImageUpload.vue'
+import type { AdminMediaItem } from '~/types/admin-media'
 
 type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'DISABLED'
 
@@ -60,6 +60,7 @@ const emit = defineEmits<{
   'save': []
   'cancel': []
 }>()
+const toast = useToast()
 
 const form = computed({
   get: () => props.modelValue,
@@ -139,15 +140,15 @@ function moveSpecificationItem(groupIndex: number, itemIndex: number, direction:
   if (item) items.splice(target, 0, item)
 }
 
-function addImage() {
-  form.value.images.push({ mediaId: undefined, imageUrl: '', altText: '' })
-}
-
-function setCoverImage(image: UploadedProductImage) {
-  form.value.coverImage = image.url
-}
-
-function addUploadedImage(image: UploadedProductImage) {
+function addSelectedImage(image: AdminMediaItem) {
+  if (form.value.images.length >= 50) {
+    toast.add({ title: '详情图片最多添加 50 张', color: 'warning' })
+    return
+  }
+  if (form.value.images.some(item => item.mediaId === image.id)) {
+    toast.add({ title: '这张图片已经添加', color: 'warning' })
+    return
+  }
   form.value.images.push({
     mediaId: image.id,
     imageUrl: image.url,
@@ -255,7 +256,7 @@ function moveImage(index: number, direction: -1 | 1) {
             产品媒体
           </h2>
           <p class="mt-1 text-sm text-muted">
-            可直接上传封面和多张详情图；详情图通过媒体 ID 关联，站内地址由服务端读取媒体库记录。
+            从媒体库选择封面和多张详情图；详情图会自动关联媒体记录，无需手工填写 ID。
           </p>
         </div>
       </template>
@@ -265,19 +266,11 @@ function moveImage(index: number, direction: -1 | 1) {
           label="封面图"
           hint="支持 JPG、PNG、WebP、GIF，单张不超过 10 MB"
         >
-          <div class="flex flex-col gap-2 sm:flex-row">
-            <UInput
-              v-model="form.coverImage"
-              class="w-full"
-              placeholder="/uploads/2026/07/example.webp"
-            />
-            <AdminCatalogProductImageUpload
-              label="上传封面图"
-              input-test-id="product-cover-upload"
-              :disabled="submitting"
-              @uploaded="setCoverImage"
-            />
-          </div>
+          <AdminMediaPicker
+            v-model="form.coverImage"
+            button-label="选择产品封面"
+            :disabled="submitting"
+          />
         </UFormField>
         <UFormField label="视频 URL">
           <UInput
@@ -304,22 +297,11 @@ function moveImage(index: number, direction: -1 | 1) {
           详情图片
         </h3>
         <div class="flex flex-wrap gap-2">
-          <AdminCatalogProductImageUpload
-            multiple
-            label="上传详情图片"
-            input-test-id="product-detail-upload"
-            :disabled="submitting"
-            :max-files="Math.max(0, 50 - form.images.length)"
-            @uploaded="addUploadedImage"
-          />
-          <UButton
-            type="button"
-            icon="i-lucide-plus"
-            label="添加媒体 ID"
-            color="neutral"
-            variant="soft"
-            size="sm"
-            @click="addImage"
+          <AdminMediaPicker
+            :model-value="''"
+            button-label="从媒体库添加详情图"
+            :disabled="submitting || form.images.length >= 50"
+            @select="addSelectedImage"
           />
         </div>
       </div>
@@ -331,7 +313,7 @@ function moveImage(index: number, direction: -1 | 1) {
         <div
           v-for="(image, index) in form.images"
           :key="index"
-          class="grid gap-3 rounded-xl border border-default p-3 md:grid-cols-[7rem_9rem_1fr_auto]"
+          class="grid gap-3 rounded-xl border border-default p-3 md:grid-cols-[7rem_1fr_auto]"
         >
           <div class="flex h-20 items-center justify-center overflow-hidden rounded-lg bg-muted/40">
             <img
@@ -346,15 +328,6 @@ function moveImage(index: number, direction: -1 | 1) {
               class="size-6 text-dimmed"
             />
           </div>
-          <UFormField label="媒体 ID">
-            <UInput
-              v-model.number="image.mediaId"
-              type="number"
-              min="1"
-              class="w-full"
-              placeholder="媒体库 ID"
-            />
-          </UFormField>
           <UFormField label="替代文本">
             <UInput
               v-model="image.altText"
@@ -367,7 +340,7 @@ function moveImage(index: number, direction: -1 | 1) {
                 v-if="image.imageUrl"
                 class="line-clamp-1 break-all"
               >{{ image.imageUrl }}</span>
-              <span v-else>保存后从媒体库读取站内地址</span>
+              <span v-else>媒体库记录 #{{ image.mediaId || '未知' }}</span>
             </template>
           </UFormField>
           <div class="flex items-center gap-1 md:flex-col">
