@@ -1,7 +1,6 @@
 import { access } from 'node:fs/promises'
 import { extname, resolve, sep } from 'node:path'
 import { expect, test, type APIResponse, type Page } from '@playwright/test'
-import { prisma } from '../../server/utils/db'
 
 type ApiEnvelope<T> = { success: boolean, data: T, message: string, code?: string }
 type H3ErrorEnvelope = { data?: ApiEnvelope<null> }
@@ -50,7 +49,6 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
   const superPassword = process.env.ADMIN_INITIAL_PASSWORD
   if (!superUsername || !superPassword) throw new Error('E2E requires seeded administrator credentials.')
 
-  const startedAt = new Date()
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const editorUsername = `qa_editor_${runId.replaceAll('-', '_')}`
   const editorPassword = `Qa!${runId}SecurePassword`
@@ -206,8 +204,6 @@ test('后台权限、产品、上传与角色边界形成闭环', async ({ page 
         if (response.status() !== 200) cleanupFailures.push(`editor ${editorId} delete returned ${response.status()}`)
       }
     }
-    await prisma.auditLog.deleteMany({ where: { createdAt: { gte: startedAt } } })
-    await prisma.$disconnect()
     expect(cleanupFailures).toEqual([])
   }
 })

@@ -18,6 +18,10 @@ if (testUploadDirectory !== expectedUploadDirectory) {
   throw new Error('Playwright tests may only use ./storage/test-uploads.')
 }
 
+process.env.DATABASE_URL = testDatabaseUrl
+process.env.UPLOAD_DIR = testUploadDirectory
+process.env.NODE_ENV = 'test'
+
 const baseURL = 'http://127.0.0.1:3101'
 
 export default defineConfig({
