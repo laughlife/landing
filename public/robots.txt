@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /uploads/
+
+# Keep sitemap.xml on the same origin as this site. Configure its canonical URL from NUXT_PUBLIC_SITE_URL.
+Sitemap: /sitemap.xml

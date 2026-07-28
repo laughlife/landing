@@ -28,6 +28,8 @@ storage/uploads/*
 !storage/uploads/.gitkeep
 backups/
 server/generated/prisma/
+.playwright-cli/
+output/playwright/
 
 #VSC
 .history

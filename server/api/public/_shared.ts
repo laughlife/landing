@@ -10,6 +10,12 @@ export const productSelect = {
   images: { select: { id: true, imageUrl: true, altText: true }, orderBy: { sortOrder: 'asc' } }
 } satisfies Prisma.ProductSelect
 
+export const productCardSelect = {
+  id: true, name: true, slug: true, model: true, subtitle: true, summary: true,
+  coverImage: true, publishedAt: true,
+  category: { select: { id: true, name: true, slug: true } }
+} satisfies Prisma.ProductSelect
+
 export const serviceSelect = {
   id: true, name: true, slug: true, icon: true, coverImage: true, summary: true,
   description: true, features: true, processSteps: true, seoTitle: true, seoDescription: true

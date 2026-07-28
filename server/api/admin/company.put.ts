@@ -14,6 +14,6 @@ export default defineEventHandler(async (event) => {
   const content = { ...data, fullDescription: sanitizeRichText(data.fullDescription), businessScope: sanitizeRichText(data.businessScope) }
   const result = await prisma.companyProfile.upsert({ where: { id: 1 }, create: { id: 1, ...content } as never, update: content as never })
   await writeAudit(event, { adminUserId: actor.id, module: 'company', action: 'UPDATE', targetType: 'CompanyProfile', targetId: 1, summary: '更新公司信息' })
-  invalidateCache('site', 'home')
+  invalidateCache('site', 'company', 'home')
   return success(result, '保存成功')
 })

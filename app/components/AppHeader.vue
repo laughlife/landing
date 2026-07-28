@@ -1,149 +1,71 @@
 <script setup lang="ts">
-import { motion } from 'motion-v'
-import type { VariantType } from 'motion-v'
+import type { SiteInfo } from '~/composables/usePublicApi'
 
-const nuxtApp = useNuxtApp()
-const activeSection = ref<string>()
+defineProps<{ site?: SiteInfo | null }>()
 
-const items = computed(() => [
-  {
-    label: 'Features',
-    to: '#features',
-    exactHash: true,
-    active: activeSection.value === 'features'
-  },
-  {
-    label: 'Metrics',
-    to: '#metrics',
-    exactHash: true,
-    active: activeSection.value === 'metrics'
-  }
-])
+const colorMode = useColorMode()
 
-nuxtApp.hooks.hookOnce('page:loading:end', () => {
-  const observer = new IntersectionObserver((entries) => {
-    const visible = entries.find(e => e.isIntersecting)
-    if (visible) {
-      activeSection.value = visible.target.id
-    } else if (entries.every(e => !e.isIntersecting)) {
-      activeSection.value = undefined
-    }
-  }, { rootMargin: '-50% 0px -50% 0px' })
+const items = [
+  { label: '首页', to: '/' },
+  { label: '产品中心', to: '/products' },
+  { label: '服务项目', to: '/services' },
+  { label: '合作伙伴', to: '/partners' },
+  { label: '公司介绍', to: '/about' },
+  { label: '新闻资讯', to: '/news' },
+  { label: '联系我们', to: '/contact' }
+]
 
-  document.querySelectorAll('#features, #metrics').forEach(el => observer.observe(el))
-})
+const isDark = computed(() => colorMode.value === 'dark')
+const colorModeLabel = computed(() => isDark.value ? '切换为浅色模式' : '切换为深色模式')
 
-const variants: Record<string, VariantType | ((custom: unknown) => VariantType)> = {
-  normal: {
-    rotate: 0,
-    y: 0,
-    opacity: 1
-  },
-  close: (custom: unknown) => {
-    const c = custom as number
-    return {
-      rotate: c === 1 ? 45 : c === 3 ? -45 : 0,
-      y: c === 1 ? 6 : c === 3 ? -6 : 0,
-      opacity: c === 2 ? 0 : 1,
-      transition: {
-        type: 'spring',
-        stiffness: 260,
-        damping: 20
-      }
-    }
-  }
+function toggleColorMode() {
+  colorMode.preference = isDark.value ? 'light' : 'dark'
 }
 </script>
 
 <template>
-  <UHeader>
+  <UHeader :ui="{ root: 'border-b border-default/70 bg-default/85 backdrop-blur-xl' }">
     <template #left>
       <NuxtLink
         to="/"
-        class="flex items-center gap-2"
+        class="flex items-center gap-3"
         aria-label="南阳市吴月商贸行首页"
       >
-        <AppLogo class="size-9 shrink-0 object-contain" />
-        <span class="text-sm font-semibold sm:text-base">
-          南阳市吴月商贸行
-        </span>
+        <img
+          v-if="site?.logo"
+          :src="site.logo"
+          :alt="site.siteName"
+          class="size-9 shrink-0 rounded-md object-contain"
+        >
+        <AppLogo
+          v-else
+          class="size-9 shrink-0 rounded-md object-contain"
+        />
+        <span class="text-sm font-semibold tracking-wide sm:text-base">{{ site?.siteName || '南阳市吴月商贸行' }}</span>
       </NuxtLink>
     </template>
 
     <UNavigationMenu
       :items="items"
       variant="link"
+      :ui="{ link: 'text-sm' }"
     />
 
     <template #right>
       <UButton
-        label="Sign in"
+        :icon="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
+        :aria-label="colorModeLabel"
         color="neutral"
         variant="ghost"
-        class="hidden lg:flex"
-      />
-      <UButton
-        label="Get started"
-        color="neutral"
-        class="hidden lg:flex"
-        to="https://ui.nuxt.com"
-        target="_blank"
-      />
-    </template>
-
-    <template #toggle="{ open, toggle, ui }">
-      <UButton
-        size="sm"
-        variant="ghost"
-        color="neutral"
         square
-        :aria-label="open ? 'Close navigation' : 'Open navigation'"
-        :aria-expanded="open"
-        :class="ui.toggle({ toggleSide: 'right' })"
-        @click="toggle"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="size-5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <motion.line
-            x1="4"
-            y1="6"
-            x2="20"
-            y2="6"
-            :variants="variants"
-            :animate="open ? 'close' : 'normal'"
-            :custom="1"
-            class="outline-none"
-          />
-          <motion.line
-            x1="4"
-            y1="12"
-            x2="20"
-            y2="12"
-            :variants="variants"
-            :animate="open ? 'close' : 'normal'"
-            :custom="2"
-            class="outline-none"
-          />
-          <motion.line
-            x1="4"
-            y1="18"
-            x2="20"
-            y2="18"
-            :variants="variants"
-            :animate="open ? 'close' : 'normal'"
-            :custom="3"
-            class="outline-none"
-          />
-        </svg>
-      </UButton>
+        @click="toggleColorMode"
+      />
+      <UButton
+        label="咨询合作"
+        to="/contact"
+        color="primary"
+        class="hidden sm:inline-flex"
+      />
     </template>
 
     <template #body>
@@ -151,19 +73,19 @@ const variants: Record<string, VariantType | ((custom: unknown) => VariantType)>
         :items="items"
         orientation="vertical"
       />
-
-      <div class="mt-4 flex flex-col gap-2">
+      <div class="mt-4 flex items-center gap-2">
         <UButton
-          label="Sign in"
+          :icon="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
+          :label="colorModeLabel"
           color="neutral"
           variant="soft"
-          block
+          class="flex-1"
+          @click="toggleColorMode"
         />
         <UButton
-          label="Get started"
-          block
-          to="https://ui.nuxt.com"
-          target="_blank"
+          label="咨询合作"
+          to="/contact"
+          class="flex-1"
         />
       </div>
     </template>

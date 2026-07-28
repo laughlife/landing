@@ -1,7 +1,7 @@
 import { prisma } from '../../utils/db'
 import { success } from '../../utils/response'
 import { cacheKey } from '../../utils/cache'
-import { articleSelect, partnerSelect, productSelect, publicCategories, publicPartner, publicRichText, serviceSelect } from './_shared'
+import { articleSelect, partnerSelect, productCardSelect, publicCategories, publicPartner, publicRichText, serviceSelect } from './_shared'
 
 export default defineCachedEventHandler(async () => {
   const now = new Date()
@@ -11,7 +11,7 @@ export default defineCachedEventHandler(async () => {
     prisma.banner.findMany({ where: { status: 'ENABLED', position: 'HOME_HERO', AND: [{ OR: [{ startAt: null }, { startAt: { lte: now } }] }, { OR: [{ endAt: null }, { endAt: { gte: now } }] }] }, select: { id: true, title: true, subtitle: true, image: true, mobileImage: true, buttonText: true, buttonLink: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
     prisma.serviceItem.findMany({ where: { status: 'ENABLED' }, select: serviceSelect, orderBy: [{ isFeatured: 'desc' }, { sortOrder: 'asc' }], take: 4 }),
     prisma.productCategory.findMany({ where: { status: 'ENABLED', parentId: null }, select: { id: true, name: true, slug: true, summary: true, description: true, coverImage: true, icon: true, children: { where: { status: 'ENABLED' }, select: { id: true, name: true, slug: true, summary: true, description: true, coverImage: true, icon: true }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] } }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
-    prisma.product.findMany({ where: { status: 'PUBLISHED', isFeatured: true }, select: productSelect, orderBy: [{ sortOrder: 'asc' }, { publishedAt: 'desc' }], take: 6 }),
+    prisma.product.findMany({ where: { status: 'PUBLISHED', isFeatured: true }, select: productCardSelect, orderBy: [{ sortOrder: 'asc' }, { publishedAt: 'desc' }], take: 6 }),
     prisma.partner.findMany({ where: { status: 'ENABLED', isFeatured: true }, select: partnerSelect, orderBy: [{ sortOrder: 'asc' }], take: 6 }),
     prisma.article.findMany({ where: { status: 'PUBLISHED' }, select: articleSelect, orderBy: [{ isFeatured: 'desc' }, { publishedAt: 'desc' }, { sortOrder: 'asc' }], take: 3 })
   ])
@@ -21,10 +21,10 @@ export default defineCachedEventHandler(async () => {
     banners,
     services: services.map(publicRichText),
     categories: publicCategories(categories),
-    products: products.map(publicRichText),
+    products,
     partners: partners.map(publicPartner),
     articles: articles.map(publicRichText),
-    featuredProducts: products.map(publicRichText),
+    featuredProducts: products,
     featuredPartners: partners.map(publicPartner),
     latestArticles: articles.map(publicRichText)
   })

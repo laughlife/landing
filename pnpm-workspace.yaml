@@ -7,6 +7,8 @@ allowBuilds:
   vue-demi: false
   '@prisma/engines': true
   prisma: true
+overrides:
+  vue: 3.5.40
 minimumReleaseAgeExclude:
   - '@prisma/adapter-mariadb@7.9.1'
   - '@prisma/client-runtime-utils@7.9.1'

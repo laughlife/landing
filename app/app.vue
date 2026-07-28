@@ -1,19 +1,15 @@
 <script setup lang="ts">
 const colorMode = useColorMode()
 
-const color = computed(() => colorMode.value === 'dark' ? '#09090b' : 'white')
+const color = computed(() => colorMode.value === 'dark' ? '#111827' : '#ffffff')
 
 useHead({
+  htmlAttrs: { lang: 'zh-CN' },
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' },
     { key: 'theme-color', name: 'theme-color', content: color }
   ],
-  link: [
-    { rel: 'icon', href: '/favicon.ico' }
-  ],
-  htmlAttrs: {
-    lang: 'zh-CN'
-  }
+  link: [{ rel: 'icon', type: 'image/png', href: '/wuyue.png' }]
 })
 
 useSeoMeta({
@@ -23,13 +19,9 @@ useSeoMeta({
 </script>
 
 <template>
-  <UApp :toaster="{ expand: false }">
-    <AppHeader />
-
-    <UMain>
+  <NuxtLayout>
+    <UApp :toaster="{ expand: false }">
       <NuxtPage />
-    </UMain>
-
-    <AppFooter />
-  </UApp>
+    </UApp>
+  </NuxtLayout>
 </template>

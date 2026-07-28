@@ -8,8 +8,8 @@ export default defineCachedEventHandler(async () => {
     where: { status: 'ENABLED', parentId: null },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     select: {
-      id: true, name: true, slug: true, summary: true, description: true, coverImage: true, icon: true,
-      children: { where: { status: 'ENABLED' }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }], select: { id: true, name: true, slug: true, summary: true, description: true, coverImage: true, icon: true } }
+      id: true, name: true, slug: true, summary: true, description: true, coverImage: true, icon: true, seoTitle: true, seoKeywords: true, seoDescription: true,
+      children: { where: { status: 'ENABLED' }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }], select: { id: true, name: true, slug: true, summary: true, description: true, coverImage: true, icon: true, seoTitle: true, seoKeywords: true, seoDescription: true } }
     }
   })
   return success(publicCategories(categories))

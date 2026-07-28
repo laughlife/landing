@@ -1,10 +1,15 @@
 <script setup lang="ts">
+import type { SiteInfo } from '~/composables/usePublicApi'
+
+withDefaults(defineProps<{ site?: SiteInfo | null }>(), {
+  site: null
+})
+
 const links = [
-  { label: 'Docs', to: 'https://ui.nuxt.com', target: '_blank' },
-  { label: 'GitHub', to: 'https://github.com/nuxt/ui', target: '_blank' },
-  { label: 'Twitter', to: 'https://twitter.com/nuxt_js', target: '_blank' },
-  { label: 'Status', to: '#' },
-  { label: 'Privacy', to: '#' }
+  { label: '产品中心', to: '/products' },
+  { label: '服务项目', to: '/services' },
+  { label: '合作伙伴', to: '/partners' },
+  { label: '联系我们', to: '/contact' }
 ]
 </script>
 
@@ -16,9 +21,17 @@ const links = [
     }"
   >
     <template #left>
-      <p class="text-sm text-dimmed">
-        南阳市吴月商贸行（个人独资）
-      </p>
+      <div class="text-sm text-dimmed">
+        <p>
+          {{ site?.footerText || site?.copyright || '南阳市吴月商贸行（个人独资）' }}
+        </p>
+        <p
+          v-if="site?.icpNumber"
+          class="mt-1"
+        >
+          {{ site.icpNumber }}
+        </p>
+      </div>
     </template>
 
     <template #right>
@@ -29,7 +42,7 @@ const links = [
         :to="link.to"
         color="neutral"
         variant="link"
-        class="font-light"
+        class="font-normal"
         size="sm"
       />
     </template>

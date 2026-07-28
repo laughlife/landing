@@ -1,357 +1,399 @@
 <script setup lang="ts">
-definePageMeta({
-  colorMode: 'dark'
-})
+import type { HomeData } from '~/composables/usePublicApi'
 
-const { data: page } = await useAsyncData('index', () => queryCollection('content').first())
-if (!page.value) {
-  throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
-}
+definePageMeta({ layout: 'default' })
 
-const title = page.value?.seo?.title || page.value?.title
-const description = page.value?.seo?.description || page.value?.description
+const { request } = usePublicApi()
+const siteOrigin = usePublicSiteOrigin()
+const route = useRoute()
+const { data, pending, error } = await useAsyncData('public:home', () => request<HomeData>('/api/public/home'))
+
+const company = computed(() => data.value?.company)
+const banner = computed(() => data.value?.banners?.[0])
+const products = computed(() => data.value?.products ?? data.value?.featuredProducts ?? [])
+const partners = computed(() => data.value?.partners ?? data.value?.featuredPartners ?? [])
+const articles = computed(() => data.value?.articles ?? data.value?.latestArticles ?? [])
+const cooperationSteps = computed(() => (data.value?.services ?? []).flatMap(service => service.processSteps ?? []).slice(0, 4))
+const canonical = computed(() => new URL(route.path, siteOrigin.value).toString())
+const title = computed(() => data.value?.site?.siteTitle || company.value?.companyName || '南阳市吴月商贸行')
+const description = computed(() => data.value?.site?.siteDescription || company.value?.introduction || company.value?.slogan || '南阳市吴月商贸行，专注提供可靠的商贸产品与合作服务。')
 
 useSeoMeta({
   title,
-  ogTitle: title,
   description,
-  ogDescription: description
+  keywords: computed(() => data.value?.site?.siteKeywords),
+  ogTitle: title,
+  ogDescription: description,
+  ogUrl: canonical,
+  ogImage: computed(() => banner.value?.image || company.value?.logo || '/wuyue.png'),
+  twitterTitle: title,
+  twitterDescription: description,
+  twitterImage: computed(() => banner.value?.image || company.value?.logo || '/wuyue.png')
 })
 
-const heroTitle = computed(() => {
-  const [primary = '', ...secondaryParts] = (page.value?.title ?? '').split('\n')
-
-  return {
-    primary,
-    secondary: secondaryParts.join(' ').trim()
-  }
-})
-
-function enterMotion(delay: number = 0) {
-  return {
-    initial: { opacity: 0, y: 16 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.6, delay }
-  }
-}
-
-function scrollMotion(delay: number = 0) {
-  return {
-    initial: { opacity: 0, y: 16 },
-    whileInView: { opacity: 1, y: 0 },
-    inViewOptions: { once: true, amount: 1 },
-    transition: { duration: 0.6, delay }
-  }
-}
-
-function staggerMotion(index: number = 0) {
-  return {
-    initial: { opacity: 0 },
-    whileInView: { opacity: 1 },
-    inViewOptions: { once: true, amount: 1 },
-    transition: { duration: 0.6, delay: index * 0.08 }
-  }
-}
-
-const { copy, copied } = useClipboard()
+useHead(() => ({
+  link: [{ rel: 'canonical', href: canonical.value }],
+  script: company.value
+    ? [{
+        type: 'application/ld+json',
+        children: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          'name': company.value.companyName,
+          'url': siteOrigin.value,
+          'logo': company.value.logo,
+          'telephone': company.value.phone,
+          'email': company.value.email,
+          'address': company.value.address
+        })
+      }, {
+        type: 'application/ld+json',
+        children: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          'name': data.value?.site?.siteName || company.value.companyName,
+          'url': siteOrigin.value
+        })
+      }]
+    : []
+}))
 </script>
 
 <template>
-  <div v-if="page">
-    <!-- Hero -->
-    <UPageHero
-      :ui="{
-        root: 'pb-24 sm:pb-32',
-        container: 'relative z-10 lg:py-32',
-        wrapper: 'flex flex-col items-center',
-        title: 'sm:text-6xl lg:text-7xl xl:text-[80px] tracking-tighter leading-[1.05]',
-        description: 'mt-5 max-w-xl mx-auto text-base sm:text-lg leading-relaxed text-default',
-        links: 'gap-3'
-      }"
-    >
-      <template #top>
-        <Motion v-bind="staggerMotion(0)">
-          <HeroShaders class="absolute top-0 inset-x-0 opacity-15 h-full" />
-        </Motion>
-
-        <GradientGlow class="top-0 w-2/3 h-1/2" />
-      </template>
-
-      <template #headline>
-        <Motion v-bind="enterMotion(0.2)">
-          <UBadge
-            color="neutral"
-            variant="soft"
-            :label="page.hero.headline"
-            class="rounded-full px-3 py-1.5 gap-1.5 bg-white/5 backdrop-blur"
+  <div>
+    <section class="relative isolate overflow-hidden border-b border-default">
+      <div class="absolute inset-0 -z-10 bg-muted" />
+      <picture
+        v-if="banner?.image"
+        class="absolute inset-0 -z-10 size-full object-cover opacity-25"
+      >
+        <source
+          v-if="banner.mobileImage"
+          media="(max-width: 640px)"
+          :srcset="banner.mobileImage"
+        >
+        <img
+          :src="banner.image"
+          :alt="banner.title"
+          class="size-full object-cover"
+          fetchpriority="high"
+        >
+      </picture>
+      <GradientGlow class="top-0 h-full w-full opacity-80" />
+      <div class="mx-auto grid max-w-7xl gap-10 px-6 py-20 sm:px-8 sm:py-28 lg:grid-cols-[1.2fr_.8fr] lg:items-center lg:py-36">
+        <div>
+          <p class="text-sm font-semibold tracking-[0.18em] text-primary uppercase">
+            {{ company?.shortName || '吴月商贸' }}
+          </p>
+          <h1
+            v-if="banner?.title || company?.heroTitle || company?.companyName"
+            class="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-highlighted sm:text-5xl lg:text-6xl"
           >
-            <template #leading>
-              <UChip
-                inset
-                standalone
-                :ui="{ base: 'animate-pulse ring-0' }"
-              />
-            </template>
-          </UBadge>
-        </Motion>
-      </template>
-
-      <template #title>
-        <Motion
-          as="span"
-          v-bind="enterMotion(0.35)"
-          class="inline-block"
-        >
-          {{ heroTitle.primary }}
-          <br v-if="heroTitle.secondary">
-          <span
-            v-if="heroTitle.secondary"
-            class="animate-shimmer bg-size-[200%_auto] bg-clip-text text-transparent"
-            :style="{
-              backgroundImage: 'linear-gradient(135deg, var(--color-primary-400), var(--color-primary-300), var(--color-primary-200), var(--color-primary-100), var(--color-primary-200), var(--color-primary-300), var(--color-primary-400))',
-              animationDuration: '10s'
-            }"
+            {{ banner?.title || company?.heroTitle || company?.companyName }}
+          </h1>
+          <p
+            v-if="banner?.subtitle || company?.heroSubtitle || company?.slogan"
+            class="mt-6 max-w-2xl text-lg leading-8 text-toned"
           >
-            {{ heroTitle.secondary }}
-          </span>
-        </Motion>
-      </template>
+            {{ banner?.subtitle || company?.heroSubtitle || company?.slogan }}
+          </p>
+          <div class="mt-9 flex flex-wrap gap-3">
+            <UButton
+              :label="banner?.buttonText || '查看产品中心'"
+              :to="banner?.buttonLink || '/products'"
+              size="xl"
+            />
+            <UButton
+              label="咨询合作"
+              to="/contact"
+              color="neutral"
+              variant="soft"
+              size="xl"
+            />
+          </div>
+        </div>
+        <div class="rounded-2xl border border-white/20 bg-default/70 p-6 shadow-2xl backdrop-blur sm:p-8">
+          <p class="text-sm font-medium text-primary">
+            专业 · 可靠 · 长期合作
+          </p>
+          <p
+            v-if="company?.introduction"
+            class="mt-4 text-xl leading-8 text-highlighted"
+          >
+            {{ company.introduction }}
+          </p>
+          <NuxtLink
+            to="/about"
+            class="mt-6 inline-flex items-center gap-1 text-sm font-medium text-primary"
+          >了解公司 <UIcon
+            name="i-lucide-arrow-right"
+            class="size-4"
+          /></NuxtLink>
+        </div>
+      </div>
+    </section>
 
-      <template #description>
-        <Motion
-          as="span"
-          v-bind="enterMotion(0.5)"
-          class="inline-block"
-        >
-          {{ page.description }}
-        </Motion>
-      </template>
-
-      <template #links>
-        <Motion
-          class="flex flex-wrap justify-center gap-6"
-          v-bind="enterMotion(0.65)"
-        >
-          <UButton
-            v-for="link in page.hero.links"
-            :key="link.label"
-            v-bind="link"
+    <div class="mx-auto max-w-7xl space-y-20 px-6 py-20 sm:px-8 sm:py-28 lg:space-y-28">
+      <SiteLoadState
+        :pending="pending"
+        :error="error"
+      />
+      <template v-if="data && !pending && !error">
+        <section>
+          <SectionHeading
+            eyebrow="服务能力"
+            title="以专业服务，连接每一次合作"
+            :description="company?.businessScope || '聚焦商贸服务的核心环节，以清晰流程和可靠响应支持客户的业务需求。'"
           />
-        </Motion>
+          <div
+            v-if="data.services?.length"
+            class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            <ServiceCard
+              v-for="service in data.services"
+              :key="service.id"
+              :service="service"
+            />
+          </div>
+          <SiteEmptyState
+            v-else
+            class="mt-10"
+            title="服务项目正在更新"
+          />
+        </section>
+
+        <section>
+          <SectionHeading
+            eyebrow="产品分类"
+            title="围绕需求，提供清晰的产品选择"
+            description="从分类浏览到产品详情，帮助您快速找到合适的产品信息。"
+          />
+          <div
+            v-if="data.categories?.length"
+            class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <CategoryCard
+              v-for="category in data.categories"
+              :key="category.id"
+              :category="category"
+            />
+          </div>
+          <SiteEmptyState
+            v-else
+            class="mt-10"
+            title="产品分类正在更新"
+          />
+        </section>
+
+        <section>
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <SectionHeading
+              eyebrow="推荐产品"
+              title="重点推荐产品"
+              description="展示已发布的重点产品信息，便于您进一步了解与咨询。"
+              align="left"
+            />
+            <UButton
+              label="全部产品"
+              to="/products"
+              color="neutral"
+              variant="soft"
+              trailing-icon="i-lucide-arrow-right"
+            />
+          </div>
+          <div
+            v-if="products.length"
+            class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <ProductCard
+              v-for="product in products"
+              :key="product.id"
+              :product="product"
+            />
+          </div>
+          <SiteEmptyState
+            v-else
+            class="mt-10"
+            title="暂无推荐产品"
+          />
+        </section>
+
+        <section class="rounded-3xl border border-default bg-elevated px-6 py-12 sm:px-10">
+          <SectionHeading
+            eyebrow="合作优势"
+            title="让每一次合作更有确定性"
+            :description="company?.fullDescription || '从需求沟通、产品匹配到持续服务，我们重视每一个可被验证的合作细节。'"
+          />
+          <ul
+            v-if="company?.advantages?.length"
+            class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <li
+              v-for="advantage in company.advantages"
+              :key="advantage"
+              class="flex gap-3 rounded-xl bg-default p-4 text-sm leading-6 text-toned"
+            >
+              <UIcon
+                name="i-lucide-circle-check"
+                class="mt-0.5 size-5 shrink-0 text-primary"
+              />{{ advantage }}
+            </li>
+          </ul>
+        </section>
+
+        <section v-if="cooperationSteps.length">
+          <SectionHeading
+            eyebrow="合作流程"
+            title="清晰推进每一步合作"
+            description="从需求确认到持续支持，以透明流程提高沟通与交付效率。"
+          />
+          <ol class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <li
+              v-for="(step, index) in cooperationSteps"
+              :key="`${index}-${step.title}`"
+              class="rounded-2xl border border-default bg-elevated p-6"
+            >
+              <span class="flex size-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{{ index + 1 }}</span>
+              <h3 class="mt-5 font-semibold text-highlighted">
+                {{ step.title }}
+              </h3>
+              <p
+                v-if="step.description"
+                class="mt-2 text-sm leading-6 text-toned"
+              >
+                {{ step.description }}
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <section>
+          <SectionHeading
+            eyebrow="合作伙伴"
+            title="与优秀伙伴共同成长"
+            description="感谢每一位合作伙伴的信任与支持。"
+          />
+          <div
+            v-if="partners.length"
+            class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <PartnerCard
+              v-for="partner in partners"
+              :key="partner.id"
+              :partner="partner"
+            />
+          </div>
+          <SiteEmptyState
+            v-else
+            class="mt-10"
+            title="合作伙伴信息正在更新"
+          />
+        </section>
+
+        <section>
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <SectionHeading
+              eyebrow="公司动态"
+              title="了解最新动态"
+              description="持续分享公司信息与行业资讯。"
+              align="left"
+            />
+            <UButton
+              label="全部资讯"
+              to="/news"
+              color="neutral"
+              variant="soft"
+              trailing-icon="i-lucide-arrow-right"
+            />
+          </div>
+          <div
+            v-if="articles.length"
+            class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <ArticleCard
+              v-for="article in articles"
+              :key="article.id"
+              :article="article"
+            />
+          </div>
+          <SiteEmptyState
+            v-else
+            class="mt-10"
+            title="暂无公司动态"
+          />
+        </section>
+
+        <section
+          v-if="company?.address || company?.phone || company?.email || company?.workingHours"
+          class="rounded-3xl border border-default bg-elevated px-6 py-10 sm:px-10"
+        >
+          <SectionHeading
+            eyebrow="联系方式"
+            title="随时欢迎您的咨询"
+            align="left"
+          />
+          <dl class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div v-if="company.address">
+              <dt class="text-sm text-dimmed">
+                公司地址
+              </dt>
+              <dd class="mt-2 leading-6 text-toned">
+                {{ company.address }}
+              </dd>
+            </div>
+            <div v-if="company.phone">
+              <dt class="text-sm text-dimmed">
+                联系电话
+              </dt>
+              <dd class="mt-2">
+                <a
+                  class="text-toned hover:text-primary"
+                  :href="`tel:${company.phone}`"
+                >{{ company.phone }}</a>
+              </dd>
+            </div>
+            <div v-if="company.email">
+              <dt class="text-sm text-dimmed">
+                电子邮箱
+              </dt>
+              <dd class="mt-2">
+                <a
+                  class="text-toned hover:text-primary"
+                  :href="`mailto:${company.email}`"
+                >{{ company.email }}</a>
+              </dd>
+            </div>
+            <div v-if="company.workingHours">
+              <dt class="text-sm text-dimmed">
+                工作时间
+              </dt>
+              <dd class="mt-2 text-toned">
+                {{ company.workingHours }}
+              </dd>
+            </div>
+          </dl>
+        </section>
       </template>
+    </div>
 
-      <Motion
-        as-child
-        v-bind="enterMotion(0.85)"
-        class="max-w-2xl mx-auto w-full"
-      >
-        <HeroTerminal :lines="page.terminal.lines" />
-      </Motion>
-
-      <Motion
-        class="max-w-lg mx-auto w-full"
-        v-bind="scrollMotion(0.95)"
-      >
-        <UPageLogos
-          :title="page.logos.title"
-          :items="page.logos.items"
-          :ui="{
-            title: 'font-mono uppercase text-xs tracking-[0.12em] text-dimmed',
-            logos: 'gap-0',
-            logo: 'text-muted size-6'
-          }"
+    <section class="border-y border-default bg-elevated">
+      <div class="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 px-6 py-14 sm:px-8 md:flex-row md:items-center">
+        <div>
+          <p class="text-sm font-semibold tracking-[0.18em] text-primary uppercase">
+            联系我们
+          </p><h2 class="mt-3 text-3xl font-semibold tracking-tight text-highlighted">
+            期待与您展开合作
+          </h2><p class="mt-3 text-dimmed">
+            有产品或服务需求，欢迎与我们取得联系。
+          </p>
+        </div>
+        <UButton
+          label="提交咨询"
+          to="/contact"
+          size="xl"
+          trailing-icon="i-lucide-arrow-right"
         />
-      </Motion>
-    </UPageHero>
-
-    <!-- Features -->
-    <UPageSection
-      id="features"
-      :ui="{
-        root: 'py-24 sm:py-32 scroll-mt-(--ui-header-height)',
-        container: 'max-w-5xl',
-        headline: 'font-mono font-medium text-xs text-primary uppercase tracking-[0.12em] text-center',
-        title: 'max-w-lg mx-auto',
-        description: 'max-w-md mx-auto text-dimmed'
-      }"
-    >
-      <template #headline>
-        <Motion
-          as="span"
-          v-bind="scrollMotion()"
-          class="inline-block"
-        >
-          {{ page.features.headline }}
-        </Motion>
-      </template>
-
-      <template #title>
-        <Motion
-          as="span"
-          v-bind="scrollMotion(0.1)"
-          class="inline-block"
-        >
-          {{ page.features.title }}
-        </Motion>
-      </template>
-
-      <template #description>
-        <Motion
-          as="span"
-          v-bind="scrollMotion(0.2)"
-          class="inline-block"
-        >
-          {{ page.features.description }}
-        </Motion>
-      </template>
-
-      <div class="rounded-2xl border border-default bg-default overflow-hidden">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px">
-          <Motion
-            v-for="(feature, index) in page.features.items"
-            :key="feature.title"
-            v-bind="staggerMotion(index)"
-          >
-            <UPageCard
-              :icon="feature.icon"
-              :title="feature.title"
-              :description="feature.description"
-              class="rounded-none duration-300"
-              to="#"
-              :ui="{
-                leading: 'mb-5 flex size-9 justify-center rounded-lg bg-primary/10',
-                title: 'text-sm tracking-tight',
-                description: 'text-sm leading-relaxed sm:line-clamp-2 lg:line-clamp-3 text-dimmed'
-              }"
-            />
-          </Motion>
-        </div>
       </div>
-    </UPageSection>
-
-    <!-- Metrics -->
-    <UPageSection
-      id="metrics"
-      :ui="{
-        root: 'py-24 sm:py-32 scroll-mt-(--ui-header-height)',
-        container: 'max-w-5xl',
-        headline: 'font-mono font-medium text-xs text-primary uppercase tracking-[0.12em] text-center',
-        title: 'max-w-lg mx-auto',
-        description: 'max-w-md mx-auto text-dimmed'
-      }"
-    >
-      <template #headline>
-        <Motion
-          as="span"
-          v-bind="scrollMotion()"
-          class="inline-block"
-        >
-          {{ page.metrics.headline }}
-        </Motion>
-      </template>
-
-      <template #title>
-        <Motion
-          as="span"
-          v-bind="scrollMotion(0.1)"
-          class="inline-block"
-        >
-          {{ page.metrics.title }}
-        </Motion>
-      </template>
-
-      <template #description>
-        <Motion
-          as="span"
-          v-bind="scrollMotion(0.2)"
-          class="inline-block"
-        >
-          {{ page.metrics.description }}
-        </Motion>
-      </template>
-
-      <div class="rounded-2xl border border-default bg-default overflow-hidden">
-        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-px">
-          <Motion
-            v-for="(metric, index) in page.metrics.items"
-            :key="metric.label"
-            v-bind="staggerMotion(index)"
-          >
-            <UPageCard
-              :title="metric.value"
-              :description="metric.label"
-              class="rounded-none duration-300"
-              to="#"
-              :ui="{
-                root: 'text-center',
-                wrapper: 'items-center',
-                title: ['text-4xl font-bold tracking-tight leading-none', metric.class],
-                description: 'font-mono text-xs uppercase tracking-[0.06em] text-dimmed mt-3'
-              }"
-            />
-          </Motion>
-        </div>
-      </div>
-    </UPageSection>
-
-    <!-- CTA -->
-    <UPageCTA
-      variant="naked"
-      :ui="{
-        root: 'py-24 sm:py-32',
-        container: 'max-w-3xl text-center',
-        title: 'lg:text-5xl tracking-tighter whitespace-pre-line',
-        description: 'mx-auto max-w-sm leading-relaxed text-dimmed'
-      }"
-    >
-      <template #top>
-        <GradientGlow class="bottom-0 w-2/3 h-1/2" />
-      </template>
-
-      <template #title>
-        <Motion
-          as="span"
-          v-bind="scrollMotion()"
-          class="inline-block"
-        >
-          {{ page.cta.title }}
-        </Motion>
-      </template>
-
-      <template #description>
-        <Motion
-          as="span"
-          v-bind="scrollMotion(0.1)"
-          class="inline-block"
-        >
-          {{ page.cta.description }}
-        </Motion>
-      </template>
-
-      <template #links>
-        <Motion
-          class="flex flex-col items-center justify-center gap-6"
-          v-bind="scrollMotion(0.2)"
-        >
-          <UButton
-            v-for="link in page.cta.links"
-            :key="link.label"
-            v-bind="link"
-            size="xl"
-          />
-
-          <UButton
-            :label="page.cta.command"
-            :trailing-icon="copied ? 'i-lucide-copy-check' : 'i-lucide-copy'"
-            color="neutral"
-            variant="subtle"
-            class="font-mono font-light text-toned gap-4"
-            size="xl"
-            :ui="{ trailingIcon: 'size-5' }"
-            @click="copy(page.cta.command)"
-          />
-        </Motion>
-      </template>
-    </UPageCTA>
+    </section>
   </div>
 </template>

@@ -13,13 +13,15 @@ function escapeXml(value: string): string {
 
 export default defineCachedEventHandler(async (event) => {
   const origin = process.env.NUXT_PUBLIC_SITE_URL || `${event.node.req.headers['x-forwarded-proto'] ?? 'http'}://${event.node.req.headers.host ?? 'localhost:3000'}`
-  const [products, services, articles] = await Promise.all([
+  const [categories, products, services, articles] = await Promise.all([
+    prisma.productCategory.findMany({ where: { status: 'ENABLED' }, select: { slug: true, updatedAt: true } }),
     prisma.product.findMany({ where: { status: 'PUBLISHED' }, select: { slug: true, updatedAt: true } }),
     prisma.serviceItem.findMany({ where: { status: 'ENABLED' }, select: { slug: true, updatedAt: true } }),
     prisma.article.findMany({ where: { status: 'PUBLISHED' }, select: { slug: true, updatedAt: true } })
   ])
   const pages = [
     ...['/', '/products', '/about', '/services', '/partners', '/news', '/contact'].map(path => ({ path, updatedAt: new Date() })),
+    ...categories.map(item => ({ path: `/products?category=${encodeURIComponent(item.slug)}`, updatedAt: item.updatedAt })),
     ...products.map(item => ({ path: `/products/${item.slug}`, updatedAt: item.updatedAt })),
     ...services.map(item => ({ path: `/services/${item.slug}`, updatedAt: item.updatedAt })),
     ...articles.map(item => ({ path: `/news/${item.slug}`, updatedAt: item.updatedAt }))
