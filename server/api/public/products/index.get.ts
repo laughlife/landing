@@ -2,7 +2,7 @@ import { getRequestURL } from 'h3'
 import { z } from 'zod'
 import { prisma } from '../../../utils/db'
 import { success } from '../../../utils/response'
-import { getValidatedQuery } from '../../../utils/validation'
+import { parseRequestQuery } from '../../../utils/validation'
 import { pageMeta, paginationQuerySchema } from '../../../utils/pagination'
 import { cacheKey } from '../../../utils/cache'
 import { productSelect } from '../_shared'
@@ -10,7 +10,7 @@ import { productSelect } from '../_shared'
 const querySchema = paginationQuerySchema.extend({ category: z.string().trim().max(191).optional() })
 
 export default defineCachedEventHandler(async (event) => {
-  const query = getValidatedQuery(event, querySchema)
+  const query = parseRequestQuery(event, querySchema)
   const where = {
     status: 'PUBLISHED' as const,
     ...(query.category ? { category: { slug: query.category, status: 'ENABLED' as const } } : {}),

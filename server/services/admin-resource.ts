@@ -23,6 +23,20 @@ const delegates: Record<AdminResource, Delegate> = {
   users: prisma.adminUser as unknown as Delegate
 }
 
+const safeAdminUserSelect = {
+  id: true,
+  username: true,
+  displayName: true,
+  email: true,
+  avatar: true,
+  role: true,
+  status: true,
+  lastLoginAt: true,
+  lastLoginIp: true,
+  createdAt: true,
+  updatedAt: true
+} as const
+
 const resourceMeta: Record<AdminResource, { model: string, search: string[], sort: string[], cache: string[] }> = {
   products: { model: '产品', search: ['name', 'model', 'summary'], sort: ['createdAt', 'updatedAt', 'sortOrder', 'name', 'publishedAt'], cache: ['products', 'home'] },
   categories: { model: '产品分类', search: ['name', 'slug'], sort: ['createdAt', 'updatedAt', 'sortOrder', 'name'], cache: ['categories', 'products', 'home'] },
@@ -72,7 +86,9 @@ export async function listResource(resource: AdminResource, query: { page: numbe
     ? prisma.product.findMany({ ...options, include: { category: { select: { id: true, name: true, slug: true } }, images: { orderBy: { sortOrder: 'asc' }, include: { media: { select: { id: true, url: true, mimeType: true } } } } } })
     : resource === 'categories'
       ? prisma.productCategory.findMany({ ...options, include: { parent: { select: { id: true, name: true, slug: true } }, children: { select: { id: true, name: true, slug: true, sortOrder: true, status: true }, orderBy: { sortOrder: 'asc' } } } })
-      : delegate.findMany(options as never)
+      : resource === 'users'
+        ? prisma.adminUser.findMany({ ...options, select: safeAdminUserSelect })
+        : delegate.findMany(options as never)
   const [items, total] = await Promise.all([itemsPromise, delegate.count({ where } as never)])
   return { items, page: query.page, pageSize: query.pageSize, total, totalPages: Math.ceil(total / query.pageSize) }
 }
@@ -82,7 +98,9 @@ export async function getResource(event: H3Event, resource: AdminResource, id: n
     ? await prisma.product.findUnique({ where: { id }, include: { category: true, images: { orderBy: { sortOrder: 'asc' }, include: { media: true } } } })
     : resource === 'categories'
       ? await prisma.productCategory.findUnique({ where: { id }, include: { parent: true, children: { orderBy: { sortOrder: 'asc' } } } })
-      : await delegates[resource].findUnique({ where: { id } } as never)
+      : resource === 'users'
+        ? await prisma.adminUser.findUnique({ where: { id }, select: safeAdminUserSelect })
+        : await delegates[resource].findUnique({ where: { id } } as never)
   if (!item) return notFound(event, `${resourceMeta[resource].model}不存在`)
   return item
 }
@@ -97,19 +115,22 @@ async function assertCategoryParent(id: number | null, parentId: unknown): Promi
 
 async function setProductImages(productId: number, imageIds: unknown): Promise<void> {
   if (!Array.isArray(imageIds)) return
-  const mediaIds = imageIds.map(value => Number(value))
-  if (!mediaIds.length) {
-    await prisma.productImage.deleteMany({ where: { productId } })
-    return
-  }
-  const count = await prisma.mediaFile.count({ where: { id: { in: mediaIds } } })
-  if (count !== mediaIds.length) throw createError({ statusCode: 400, statusMessage: '存在无效图片' })
-  const media = await prisma.mediaFile.findMany({ where: { id: { in: mediaIds } }, select: { id: true, url: true } })
-  const urls = new Map(media.map(item => [item.id, item.url]))
+  const { mediaIds, urls } = await validateProductImageIds(imageIds)
   await prisma.$transaction(async (transaction) => {
     await transaction.productImage.deleteMany({ where: { productId } })
     if (mediaIds.length) await transaction.productImage.createMany({ data: mediaIds.map((mediaId, index) => ({ productId, mediaId, imageUrl: urls.get(mediaId)!, sortOrder: index })) })
   })
+}
+
+async function validateProductImageIds(imageIds: unknown): Promise<{ mediaIds: number[], urls: Map<number, string> }> {
+  if (!Array.isArray(imageIds)) return { mediaIds: [], urls: new Map() }
+  const mediaIds = imageIds.map(value => Number(value))
+  if (!mediaIds.length) return { mediaIds, urls: new Map() }
+  const count = await prisma.mediaFile.count({ where: { id: { in: mediaIds } } })
+  if (count !== mediaIds.length) throw createError({ statusCode: 400, statusMessage: '存在无效图片' })
+  const media = await prisma.mediaFile.findMany({ where: { id: { in: mediaIds } }, select: { id: true, url: true } })
+  const urls = new Map(media.map(item => [item.id, item.url]))
+  return { mediaIds, urls }
 }
 
 async function deleteMediaFiles(relativePath: string, storedName: string): Promise<void> {
@@ -123,19 +144,40 @@ async function deleteMediaFiles(relativePath: string, storedName: string): Promi
   await Promise.allSettled(names.filter(name => name === storedName || (name.startsWith(`${baseName}-`) && extname(name) === '.webp')).map(name => rm(join(directory, name), { force: true })))
 }
 
+async function countDirectMediaReferences(url: string, mediaId: number): Promise<number> {
+  const counts = await Promise.all([
+    prisma.productImage.count({ where: { OR: [{ mediaId }, { imageUrl: url }] } }),
+    prisma.mediaReference.count({ where: { mediaId } }),
+    prisma.companyProfile.count({ where: { OR: [{ logo: url }, { favicon: url }] } }),
+    prisma.siteSetting.count({ where: { OR: [{ logo: url }, { favicon: url }] } }),
+    prisma.product.count({ where: { coverImage: url } }),
+    prisma.partner.count({ where: { OR: [{ logo: url }, { coverImage: url }] } }),
+    prisma.serviceItem.count({ where: { coverImage: url } }),
+    prisma.banner.count({ where: { OR: [{ image: url }, { mobileImage: url }] } }),
+    prisma.article.count({ where: { coverImage: url } })
+  ])
+  return counts.reduce((total, count) => total + count, 0)
+}
+
 export async function createResource(event: H3Event, resource: AdminResource, input: Record<string, unknown>, actor: AdminSession) {
   if (resource === 'users' && actor.role !== 'SUPER_ADMIN') fail(event, 403, 'FORBIDDEN', '仅超级管理员可管理账号')
   if (resource === 'media') fail(event, 405, 'METHOD_NOT_ALLOWED', '请使用上传接口创建媒体')
   if (resource === 'categories') await assertCategoryParent(-1, input.parentId)
   const raw = { ...input }
+  if (resource === 'products' && Array.isArray(raw.imageIds)) await validateProductImageIds(raw.imageIds)
   const data = cleanPayload(raw)
-  if (resource === 'users') data.passwordHash = await hashPassword(String(raw.password))
+  if (resource === 'users') {
+    if (typeof raw.password !== 'string' || raw.password.length < 12) fail(event, 400, 'VALIDATION_ERROR', '新管理员密码至少需要 12 位')
+    data.passwordHash = await hashPassword(raw.password)
+  }
   if (resource === 'products' && data.status === 'PUBLISHED') data.publishedAt = new Date()
   const created = await delegates[resource].create({ data } as never) as { id: number }
   if (resource === 'products') await setProductImages(created.id, raw.imageIds)
   await writeAudit(event, { adminUserId: actor.id, module: resource, action: data.status === 'PUBLISHED' ? 'PUBLISH' : 'CREATE', targetType: resource, targetId: created.id, summary: `新增${resourceMeta[resource].model}` })
   invalidateCache(...resourceMeta[resource].cache)
-  return created
+  return resource === 'users'
+    ? await prisma.adminUser.findUnique({ where: { id: created.id }, select: safeAdminUserSelect })
+    : created
 }
 
 export async function updateResource(event: H3Event, resource: AdminResource, id: number, input: Record<string, unknown>, actor: AdminSession) {
@@ -146,9 +188,11 @@ export async function updateResource(event: H3Event, resource: AdminResource, id
       const requested = input.role
       if (requested && requested !== 'SUPER_ADMIN') fail(event, 403, 'FORBIDDEN', '不能降级其他超级管理员')
     }
+    if (actor.id === id && input.status === 'DISABLED') fail(event, 400, 'SELF_DISABLE_FORBIDDEN', '不能停用当前登录账号')
   }
   if (resource === 'categories') await assertCategoryParent(id, input.parentId)
   const raw = { ...input }
+  if (resource === 'products' && Array.isArray(raw.imageIds)) await validateProductImageIds(raw.imageIds)
   const data = cleanPayload(raw)
   if (resource === 'users' && raw.password) data.passwordHash = await hashPassword(String(raw.password))
   if (resource === 'products' && data.status === 'PUBLISHED') data.publishedAt = new Date()
@@ -156,11 +200,13 @@ export async function updateResource(event: H3Event, resource: AdminResource, id
   if (resource === 'products') await setProductImages(id, raw.imageIds)
   await writeAudit(event, { adminUserId: actor.id, module: resource, action: data.status === 'PUBLISHED' ? 'PUBLISH' : 'UPDATE', targetType: resource, targetId: id, summary: `修改${resourceMeta[resource].model}` })
   invalidateCache(...resourceMeta[resource].cache)
-  return updated
+  return resource === 'users'
+    ? await prisma.adminUser.findUnique({ where: { id }, select: safeAdminUserSelect })
+    : updated
 }
 
 export async function deleteResource(event: H3Event, resource: AdminResource, id: number, actor: AdminSession) {
-  const existing = await getResource(event, resource, id) as { role?: string, id: number, relativePath?: string, storedName?: string }
+  const existing = await getResource(event, resource, id) as { role?: string, id: number, relativePath?: string, storedName?: string, url?: string }
   if (resource === 'users') {
     if (actor.role !== 'SUPER_ADMIN') fail(event, 403, 'FORBIDDEN', '仅超级管理员可管理账号')
     if (actor.id === id) fail(event, 400, 'SELF_DELETE_FORBIDDEN', '不能删除当前登录账号')
@@ -172,12 +218,16 @@ export async function deleteResource(event: H3Event, resource: AdminResource, id
     if (children || products) fail(event, 409, 'CATEGORY_IN_USE', '分类下仍有子分类或产品，不能删除')
   }
   if (resource === 'media') {
-    const [images, references] = await Promise.all([prisma.productImage.count({ where: { mediaId: id } }), prisma.mediaReference.count({ where: { mediaId: id } })])
-    if (images || references) fail(event, 409, 'MEDIA_IN_USE', '媒体文件仍被内容引用，不能删除')
+    const references = existing.url ? await countDirectMediaReferences(existing.url, id) : 0
+    if (references) fail(event, 409, 'MEDIA_IN_USE', '媒体文件仍被内容引用，不能删除')
   }
   const deleted = await delegates[resource].delete({ where: { id } } as never)
   if (resource === 'media' && existing.relativePath && existing.storedName) await deleteMediaFiles(existing.relativePath, existing.storedName)
   await writeAudit(event, { adminUserId: actor.id, module: resource, action: resource === 'media' ? 'DELETE_FILE' : 'DELETE', targetType: resource, targetId: id, summary: `删除${resourceMeta[resource].model}` })
   invalidateCache(...resourceMeta[resource].cache)
+  if (resource === 'users') {
+    const { passwordHash: _passwordHash, ...safeUser } = deleted as { passwordHash: string } & Record<string, unknown>
+    return safeUser
+  }
   return deleted
 }

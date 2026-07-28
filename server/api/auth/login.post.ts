@@ -3,14 +3,14 @@ import { prisma } from '../../utils/db'
 import { fail, success } from '../../utils/response'
 import { enforceRateLimit } from '../../utils/rate-limit'
 import { assertSameOrigin, requestContext } from '../../utils/security'
-import { readValidatedBody } from '../../utils/validation'
+import { parseRequestBody } from '../../utils/validation'
 import { writeAudit } from '../../utils/audit'
 
 const loginSchema = z.object({ username: z.string().trim().min(1).max(64), password: z.string().min(1).max(128) })
 
 export default defineEventHandler(async (event) => {
   assertSameOrigin(event)
-  const input = await readValidatedBody(event, loginSchema)
+  const input = await parseRequestBody(event, loginSchema)
   const context = requestContext(event)
   const usernameKey = input.username.toLowerCase()
   enforceRateLimit(event, `login:ip:${context.ipAddress ?? 'unknown'}`, 10, 15 * 60 * 1000)

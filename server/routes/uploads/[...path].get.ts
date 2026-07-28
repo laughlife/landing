@@ -16,7 +16,21 @@ export default defineEventHandler(async (event) => {
   const base = root()
   const target = resolve(base, relativePath)
   if (!isPathWithinRoot(base, target)) return fail(event, 404, 'NOT_FOUND', '文件不存在')
-  const media = await prisma.mediaFile.findUnique({ where: { relativePath: relativePath.replace(/\\/g, '/') }, select: { mimeType: true } })
+  const normalizedPath = relativePath.replace(/\\/g, '/')
+  let media = await prisma.mediaFile.findUnique({ where: { relativePath: normalizedPath }, select: { mimeType: true } })
+  if (!media) {
+    const derived = normalizedPath.match(/^(.*)-(?:thumb|480|960|1600)\.webp$/)
+    if (derived?.[1]) {
+      media = await prisma.mediaFile.findFirst({
+        where: {
+          relativePath: { startsWith: `${derived[1]}.` },
+          mimeType: { startsWith: 'image/' }
+        },
+        select: { mimeType: true }
+      })
+      if (media) media = { mimeType: 'image/webp' }
+    }
+  }
   if (!media) return fail(event, 404, 'NOT_FOUND', '文件不存在')
   try {
     await access(target)

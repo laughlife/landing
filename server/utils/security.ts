@@ -51,5 +51,9 @@ export function assertSameOrigin(event: H3Event): void {
 }
 
 export function requestContext(event: H3Event): { ipAddress: string | null, userAgent: string | null } {
-  return { ipAddress: getRequestIP(event, { xForwardedFor: true }) ?? null, userAgent: getHeader(event, 'user-agent')?.slice(0, 512) ?? null }
+  const trustProxy = process.env.TRUST_PROXY?.toLowerCase() === 'true'
+  return {
+    ipAddress: getRequestIP(event, { xForwardedFor: trustProxy }) ?? null,
+    userAgent: getHeader(event, 'user-agent')?.slice(0, 512) ?? null
+  }
 }

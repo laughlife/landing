@@ -2,12 +2,12 @@ import { prisma } from '../../utils/db'
 import { fail, success } from '../../utils/response'
 import { enforceRateLimit } from '../../utils/rate-limit'
 import { assertSameOrigin, requestContext } from '../../utils/security'
-import { readValidatedBody } from '../../utils/validation'
+import { parseRequestBody } from '../../utils/validation'
 import { contactMessageSchema } from '../../validators/contact'
 
 export default defineEventHandler(async (event) => {
   assertSameOrigin(event)
-  const input = await readValidatedBody(event, contactMessageSchema)
+  const input = await parseRequestBody(event, contactMessageSchema)
   const context = requestContext(event)
   enforceRateLimit(event, `contact:ip:${context.ipAddress ?? 'unknown'}`, 5, 60 * 60 * 1000)
   if (input.website) return success({ accepted: true }, '提交成功')

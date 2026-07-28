@@ -3,7 +3,7 @@ import { prisma } from '../../utils/db'
 import { fail, success } from '../../utils/response'
 import { requireAdminSession } from '../../utils/auth'
 import { assertSameOrigin } from '../../utils/security'
-import { readValidatedBody } from '../../utils/validation'
+import { parseRequestBody } from '../../utils/validation'
 import { writeAudit } from '../../utils/audit'
 
 const changePasswordSchema = z.object({
@@ -15,7 +15,7 @@ const changePasswordSchema = z.object({
 export default defineEventHandler(async (event) => {
   assertSameOrigin(event)
   const actor = await requireAdminSession(event)
-  const input = await readValidatedBody(event, changePasswordSchema)
+  const input = await parseRequestBody(event, changePasswordSchema)
   if (input.currentPassword === input.newPassword) fail(event, 400, 'VALIDATION_ERROR', '新密码不能与当前密码相同')
   const user = await prisma.adminUser.findUnique({ where: { id: actor.id }, select: { passwordHash: true, status: true } })
   if (!user || user.status !== 'ENABLED' || !(await verifyPassword(user.passwordHash, input.currentPassword))) {

@@ -177,19 +177,19 @@ Host: localhost
 Port: 3306
 Database: wysm
 Username: root
-Password: Liv88625200@@
+Password: 仅保存在本地未跟踪的 `.env` 中
 ```
 
 Prisma URL 中密码里的 `@` 必须 URL 编码：
 
 ```env
-DATABASE_URL="mysql://root:Liv88625200%40%40@localhost:3306/wysm"
+DATABASE_URL="mysql://root:URL_ENCODED_PASSWORD@localhost:3306/wysm"
 ```
 
 请创建本地 `.env`，至少包含：
 
 ```env
-DATABASE_URL="mysql://root:Liv88625200%40%40@localhost:3306/wysm"
+DATABASE_URL="mysql://root:URL_ENCODED_PASSWORD@localhost:3306/wysm"
 
 NUXT_SESSION_PASSWORD="由程序生成至少64位的高强度随机字符串"
 ADMIN_INITIAL_USERNAME="admin"
