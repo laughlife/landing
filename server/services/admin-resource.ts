@@ -7,6 +7,7 @@ import { isPathWithinRoot, isSafeRelativeUploadPath, sanitizeRichText } from '..
 import { invalidateCache } from '../utils/cache'
 import { writeAudit } from '../utils/audit'
 import type { AdminSession } from '../utils/auth'
+import { findMediaUsages } from './media-reference'
 
 export type AdminResource = 'products' | 'categories' | 'partners' | 'services' | 'banners' | 'articles' | 'messages' | 'media' | 'users'
 type Delegate = { findMany: (input?: never) => Promise<unknown[]>, findUnique: (input: never) => Promise<unknown>, count: (input?: never) => Promise<number>, create: (input: never) => Promise<unknown>, update: (input: never) => Promise<unknown>, delete: (input: never) => Promise<unknown> }
@@ -167,25 +168,6 @@ async function deleteMediaFiles(relativePath: string, storedName: string): Promi
   const baseName = parse(storedName).name
   const names = await readdir(directory).catch(() => [])
   await Promise.allSettled(names.filter(name => name === storedName || (name.startsWith(`${baseName}-`) && extname(name) === '.webp')).map(name => rm(join(directory, name), { force: true })))
-}
-
-type MediaReferenceClient = Pick<PrismaTransactionClient, 'productImage' | 'mediaReference' | 'companyProfile' | 'siteSetting' | 'productCategory' | 'product' | 'partner' | 'serviceItem' | 'banner' | 'article' | 'adminUser'>
-
-async function countDirectMediaReferences(client: MediaReferenceClient, url: string, mediaId: number): Promise<number> {
-  const counts = await Promise.all([
-    client.productImage.count({ where: { OR: [{ mediaId }, { imageUrl: url }] } }),
-    client.mediaReference.count({ where: { mediaId } }),
-    client.companyProfile.count({ where: { OR: [{ logo: url }, { favicon: url }] } }),
-    client.siteSetting.count({ where: { OR: [{ logo: url }, { favicon: url }, { fallbackImage: url }] } }),
-    client.productCategory.count({ where: { coverImage: url } }),
-    client.product.count({ where: { coverImage: url } }),
-    client.partner.count({ where: { OR: [{ logo: url }, { coverImage: url }] } }),
-    client.serviceItem.count({ where: { coverImage: url } }),
-    client.banner.count({ where: { OR: [{ image: url }, { mobileImage: url }] } }),
-    client.article.count({ where: { coverImage: url } }),
-    client.adminUser.count({ where: { avatar: url } })
-  ])
-  return counts.reduce((total, count) => total + count, 0)
 }
 
 export async function createResource(event: H3Event, resource: AdminResource, input: Record<string, unknown>, actor: AdminSession) {
@@ -352,8 +334,10 @@ export async function deleteResource(event: H3Event, resource: AdminResource, id
       if (children || products) fail(event, 409, 'CATEGORY_IN_USE', '分类下仍有子分类或产品，不能删除')
     }
     if (resource === 'media') {
-      const references = existing.url ? await countDirectMediaReferences(transaction, existing.url, id) : 0
-      if (references) fail(event, 409, 'MEDIA_IN_USE', '媒体文件仍被内容引用，不能删除')
+      const references = existing.url ? await findMediaUsages(transaction, id, existing.url) : []
+      if (references.length) {
+        fail(event, 409, 'MEDIA_IN_USE', `媒体文件仍被 ${references.length} 处内容引用，不能删除`)
+      }
     }
     const item = await resourceDelegates(transaction)[resource].delete({ where: { id } } as never)
     await writeAudit(event, { adminUserId: actor.id, module: resource, action: resource === 'media' ? 'DELETE_FILE' : 'DELETE', targetType: resource, targetId: id, summary: `删除${resourceMeta[resource].model}` }, transaction)

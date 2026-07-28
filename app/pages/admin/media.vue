@@ -18,6 +18,21 @@ type PageData<T> = { items?: T[], total?: number, page?: number, pageSize?: numb
 type ApiResponse<T> = { success: boolean, data: T, message: string }
 type ApiErrorResponse = { code?: string, message?: string }
 type ApiErrorEnvelope = ApiErrorResponse & { data?: ApiErrorResponse | null }
+type MediaUsage = {
+  key: string
+  resourceType: string
+  resourceId: number
+  resourceLabel: string
+  field: string
+  fieldLabel: string
+  locationLabel: string
+  editUrl: string
+}
+type MediaReferencesData = {
+  media: Pick<MediaItem, 'id' | 'originalName' | 'url'>
+  references: MediaUsage[]
+  total: number
+}
 
 const items = ref<MediaItem[]>([])
 const page = ref(1)
@@ -32,6 +47,11 @@ const notice = ref('')
 const preview = ref<MediaItem | null>(null)
 const pendingDelete = ref<MediaItem | null>(null)
 const deleting = ref(false)
+const checkingDeleteId = ref<number | null>(null)
+const referenceTarget = ref<MediaItem | null>(null)
+const references = ref<MediaUsage[]>([])
+const referencesLoading = ref(false)
+const referencesError = ref('')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 const categoryOptions = [{ label: '全部类型', value: 'ALL' }, { label: '图片', value: 'IMAGE' }, { label: '文档', value: 'DOCUMENT' }, { label: '其他', value: 'OTHER' }]
 
@@ -82,12 +102,41 @@ async function upload(event: Event) {
   }
 }
 
-async function copyUrl(url: string) {
+async function loadReferences(target: MediaItem) {
+  const response = await $fetch<ApiResponse<MediaReferencesData>>(`/api/admin/media/${target.id}/references`)
+  references.value = response.data.references
+  target.referenceCount = response.data.total
+}
+
+async function openReferences(target: MediaItem) {
+  referenceTarget.value = target
+  references.value = []
+  referencesError.value = ''
+  referencesLoading.value = true
   try {
-    await navigator.clipboard.writeText(url)
-    notice.value = '文件 URL 已复制'
-  } catch {
-    error.value = '浏览器未允许访问剪贴板，请手动复制 URL'
+    await loadReferences(target)
+  } catch (reason) {
+    referencesError.value = reason instanceof Error ? reason.message : '引用位置加载失败'
+  } finally {
+    referencesLoading.value = false
+  }
+}
+
+async function prepareDelete(target: MediaItem) {
+  checkingDeleteId.value = target.id
+  error.value = ''
+  try {
+    await loadReferences(target)
+    if (references.value.length) {
+      referenceTarget.value = target
+      referencesError.value = ''
+      return
+    }
+    pendingDelete.value = target
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '删除前无法核对引用位置，请稍后重试'
+  } finally {
+    checkingDeleteId.value = null
   }
 }
 
@@ -106,9 +155,11 @@ async function remove() {
   } catch (reason) {
     const apiError = reason as { data?: ApiErrorEnvelope, message?: string }
     const failure = apiError.data?.code ? apiError.data : apiError.data?.data
-    error.value = failure?.code === 'MEDIA_IN_USE'
-      ? `${failure.message || '媒体文件仍被内容引用，不能删除'}。请先在新闻或其他内容中移除该图片后重试。`
-      : failure?.message || apiError.data?.message || apiError.message || '删除失败，请稍后重试'
+    if (failure?.code === 'MEDIA_IN_USE') {
+      await openReferences(target)
+    } else {
+      error.value = failure?.message || apiError.data?.message || apiError.message || '删除失败，请稍后重试'
+    }
   } finally {
     deleting.value = false
   }
@@ -223,14 +274,14 @@ onMounted(load)
             <p class="mt-1 text-xs text-muted">
               {{ formatSize(item.size) }}<span v-if="item.width && item.height"> · {{ item.width }}×{{ item.height }}</span>
             </p>
-            <div class="mt-3 flex justify-between">
+            <div class="mt-3 flex items-center justify-between gap-2">
               <UButton
                 size="xs"
                 color="neutral"
                 variant="ghost"
-                icon="i-lucide-copy"
-                label="复制 URL"
-                @click="copyUrl(item.url)"
+                icon="i-lucide-map-pin"
+                :label="item.referenceCount === undefined ? '查看引用' : `引用 ${item.referenceCount} 处`"
+                @click="openReferences(item)"
               />
               <UButton
                 size="xs"
@@ -238,7 +289,8 @@ onMounted(load)
                 variant="ghost"
                 icon="i-lucide-trash-2"
                 aria-label="删除文件"
-                @click="pendingDelete = item"
+                :loading="checkingDeleteId === item.id"
+                @click="prepareDelete(item)"
               />
             </div>
           </template>
@@ -290,6 +342,89 @@ onMounted(load)
             label="在新窗口打开文件"
           />
         </div>
+      </div>
+    </div>
+    <div
+      v-if="referenceTarget"
+      class="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4"
+      @click.self="referenceTarget = null"
+    >
+      <div class="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-default p-5 shadow-xl">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-semibold text-highlighted">
+              图片引用位置
+            </h2>
+            <p class="mt-1 break-all text-sm text-muted">
+              {{ referenceTarget.originalName }}
+            </p>
+          </div>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-x"
+            aria-label="关闭引用位置"
+            @click="referenceTarget = null"
+          />
+        </div>
+        <div
+          v-if="referencesLoading"
+          class="grid min-h-40 place-items-center text-sm text-muted"
+        >
+          正在核对引用位置…
+        </div>
+        <UAlert
+          v-else-if="referencesError"
+          class="mt-4"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-circle-alert"
+          title="引用位置加载失败"
+          :description="referencesError"
+        />
+        <div
+          v-else-if="references.length"
+          class="mt-4 space-y-3"
+        >
+          <UAlert
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-link"
+            title="该文件暂时不能删除"
+            description="请前往下列位置移除图片并保存，再回到媒体库删除文件。"
+          />
+          <div
+            v-for="reference in references"
+            :key="reference.key"
+            class="flex flex-col gap-3 rounded-xl border border-default p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div class="min-w-0">
+              <p class="font-medium text-highlighted">
+                {{ reference.locationLabel }} · {{ reference.resourceLabel }}
+              </p>
+              <p class="mt-1 text-sm text-muted">
+                引用字段：{{ reference.fieldLabel }}
+              </p>
+            </div>
+            <UButton
+              :to="reference.editUrl"
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-external-link"
+              label="前往解除引用"
+              @click="referenceTarget = null"
+            />
+          </div>
+        </div>
+        <UAlert
+          v-else
+          class="mt-4"
+          color="success"
+          variant="subtle"
+          icon="i-lucide-circle-check"
+          title="当前未被引用"
+          description="这个文件没有被站点内容使用，可以安全删除。"
+        />
       </div>
     </div>
     <AdminOperationsConfirmDialog
